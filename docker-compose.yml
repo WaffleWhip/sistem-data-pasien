@@ -1,7 +1,6 @@
-version: '3.8'
+﻿version: '3.8'
 
 services:
-  # ========== DATABASES ==========
   mongo-auth:
     image: mongo:6
     container_name: mongo_auth
@@ -13,7 +12,7 @@ services:
       - patient-network
 
   mongo-patient:
-    image: mongo:6  
+    image: mongo:6
     container_name: mongo_patient
     ports:
       - "27018:27017"
@@ -22,7 +21,6 @@ services:
     networks:
       - patient-network
 
-  # ========== MICROSERVICES ==========
   auth-service:
     build: ./auth-service
     container_name: auth_service
@@ -30,9 +28,8 @@ services:
       - "3001:3001"
     environment:
       - PORT=3001
-      - JWT_SECRET=dev_jwt_secret_123
-      - DB_URI=mongodb://mongo-auth:27017/user_db
-      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongo-auth:27017/authdb
+      - JWT_SECRET=your_super_secret_jwt_key_change_in_production
     depends_on:
       - mongo-auth
     networks:
@@ -45,16 +42,27 @@ services:
       - "3002:3002"
     environment:
       - PORT=3002
-      - DB_URI=mongodb://mongo-patient:27017/patient_db
-      - AUTH_SERVICE_URL=http://auth-service:3001
-      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongo-patient:27017/patientdb
     depends_on:
       - mongo-patient
-      - auth-service
     networks:
       - patient-network
 
-# ========== NETWORK & VOLUMES ==========
+  gateway-service:
+    build: ./gateway-service
+    container_name: gateway_service
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - PATIENT_SERVICE_URL=http://patient-service:3002
+    depends_on:
+      - auth-service
+      - patient-service
+    networks:
+      - patient-network
+
 networks:
   patient-network:
     driver: bridge
