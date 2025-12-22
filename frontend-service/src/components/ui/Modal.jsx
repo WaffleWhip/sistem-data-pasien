@@ -6,18 +6,18 @@ const Modal = ({ title, isOpen, onClose, children }) => {
 
   return (
     <div 
-      className="fixed inset-0 bg-brand-dark/70 flex items-center justify-center p-4 z-50 backdrop-blur-sm"
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in"
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-xl w-full max-w-2xl shadow-xl transform transition-all animate-in fade-in-90 slide-in-from-bottom-10 duration-300"
+        className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl transform transition-all animate-scale-in overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-brand-dark">{title}</h2>
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
+          <h2 className="text-xl font-bold text-slate-800">{title}</h2>
           <button 
             onClick={onClose} 
-            className="p-1 rounded-full text-brand-light hover:bg-gray-200 hover:text-brand-secondary transition-colors"
+            className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all duration-200"
           >
             <X size={20} />
           </button>

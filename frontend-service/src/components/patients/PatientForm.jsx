@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, User, Stethoscope, Settings } from 'lucide-react';
 
 const PatientForm = ({ patient, isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -95,16 +95,16 @@ const PatientForm = ({ patient, isOpen, onClose, onSuccess }) => {
     }
   };
 
-  const formInputClass = "bg-white border-brand-light text-brand-dark placeholder-brand-light focus:ring-brand-primary focus:border-brand-primary";
-  const formLabelClass = "text-brand-secondary";
+  const selectClasses = "block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 hover:border-slate-300";
+  const labelClasses = "text-sm font-medium text-slate-600 mb-1.5 block";
 
   const renderSelect = (id, label, value, onChange, options, placeholder) => (
-    <div>
-      <label htmlFor={id} className={`text-sm font-medium mb-1 block ${formLabelClass}`}>{label}</label>
+    <div className="group">
+      <label htmlFor={id} className={`${labelClasses} group-focus-within:text-indigo-600 transition-colors`}>{label}</label>
       <select 
         id={id}
         name={id}
-        className={`block w-full px-3 py-2.5 rounded-lg outline-none transition ${formInputClass}`}
+        className={selectClasses}
         value={value}
         onChange={onChange}
       >
@@ -116,73 +116,99 @@ const PatientForm = ({ patient, isOpen, onClose, onSuccess }) => {
 
   return (
     <Modal title={patient ? 'Edit Patient' : 'Add New Patient'} isOpen={isOpen} onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <h3 className="text-lg font-semibold text-brand-dark border-b pb-2 mb-4">Patient Details</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2">
-            <Input id="name" name="name" label="Full Name" required value={formData.name} onChange={handleInputChange} className={formInputClass} labelClassName={formLabelClass} />
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Patient Details Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <User size={18} className="text-indigo-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-800">Patient Details</h3>
           </div>
-          <Input id="age" name="age" type="number" label="Age" required value={formData.age} onChange={handleInputChange} className={formInputClass} labelClassName={formLabelClass} />
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {renderSelect('gender', 'Gender', formData.gender, handleInputChange, 
-            <>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
-            </>
-          )}
-          <Input id="phone" name="phone" label="Phone Number" placeholder="08..." required value={formData.phone} onChange={handleInputChange} className={formInputClass} labelClassName={formLabelClass} />
-        </div>
-
-        <Input id="address" name="address" label="Home Address" required value={formData.address} onChange={handleInputChange} className={formInputClass} labelClassName={formLabelClass} />
-        
-        <h3 className="text-lg font-semibold text-brand-dark border-b pb-2 mb-4 pt-4">Medical Information</h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input 
-            id="diagnosis" 
-            name="diagnosis" 
-            label="Current Diagnosis" 
-            required 
-            value={formData.diagnosis} 
-            onChange={handleInputChange} 
-            className={`${formInputClass} ${!isAdmin ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-default' : ''}`}
-            labelClassName={formLabelClass}
-            disabled={!isAdmin}
-          />
-          <div>
-            <label htmlFor="status" className={`text-sm font-medium mb-1 block ${formLabelClass}`}>Medical Status</label>
-            {isAdmin ? (
-              <select 
-                id="status"
-                name="status"
-                className={`block w-full px-3 py-2.5 rounded-lg outline-none transition ${formInputClass}`}
-                value={formData.status}
-                onChange={handleInputChange}
-              >
-                <option value="Active">Active</option>
-                <option value="Recovered">Recovered</option>
-                <option value="Inactive">Inactive</option>
-                <option value="Deceased">Deceased</option>
-              </select>
-            ) : (
-              <input
-                type="text"
-                disabled
-                value={formData.status}
-                className={`block w-full px-3 py-2.5 rounded-lg outline-none transition bg-gray-100 text-gray-500 border-brand-light border border-gray-200 cursor-default`}
-              />
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <Input id="name" name="name" label="Full Name" required value={formData.name} onChange={handleInputChange} placeholder="Enter patient name" />
+            </div>
+            <Input id="age" name="age" type="number" label="Age" required value={formData.age} onChange={handleInputChange} placeholder="Age" />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {renderSelect('gender', 'Gender', formData.gender, handleInputChange, 
+              <>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </>
             )}
+            <Input id="phone" name="phone" label="Phone Number" placeholder="e.g., 08123456789" required value={formData.phone} onChange={handleInputChange} />
+          </div>
+
+          <Input id="address" name="address" label="Home Address" required value={formData.address} onChange={handleInputChange} placeholder="Enter full address" />
+        </div>
+        
+        {/* Medical Information Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+            <div className="p-2 bg-emerald-100 rounded-lg">
+              <Stethoscope size={18} className="text-emerald-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-800">Medical Information</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="group">
+              <label htmlFor="diagnosis" className={`${labelClasses} group-focus-within:text-indigo-600 transition-colors`}>Current Diagnosis</label>
+              <input
+                id="diagnosis"
+                name="diagnosis"
+                type="text"
+                required
+                value={formData.diagnosis}
+                onChange={handleInputChange}
+                disabled={!isAdmin}
+                placeholder="Enter diagnosis"
+                className={`${selectClasses} ${!isAdmin ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200' : ''}`}
+              />
+            </div>
+            <div className="group">
+              <label htmlFor="status" className={`${labelClasses} group-focus-within:text-indigo-600 transition-colors`}>Medical Status</label>
+              {isAdmin ? (
+                <select 
+                  id="status"
+                  name="status"
+                  className={selectClasses}
+                  value={formData.status}
+                  onChange={handleInputChange}
+                >
+                  <option value="Active">Active</option>
+                  <option value="Recovered">Recovered</option>
+                  <option value="Inactive">Inactive</option>
+                  <option value="Deceased">Deceased</option>
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  disabled
+                  value={formData.status}
+                  className={`${selectClasses} bg-slate-100 text-slate-500 cursor-not-allowed`}
+                />
+              )}
+            </div>
           </div>
         </div>
 
+        {/* Admin Settings Section */}
         {isAdmin && (
-          <>
-            <h3 className="text-lg font-semibold text-brand-dark border-b pb-2 mb-4 pt-4">Admin Settings</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-brand-background rounded-lg border border-gray-200">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Settings size={18} className="text-purple-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-800">Admin Settings</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
               {renderSelect('userId', 'Link Account', formData.userId, handleInputChange,
                 users.map(u => <option key={u._id} value={u._id}>{u.username}</option>),
                 '-- No Account --'
@@ -192,13 +218,14 @@ const PatientForm = ({ patient, isOpen, onClose, onSuccess }) => {
                 '-- Select Doctor --'
               )}
             </div>
-          </>
+          </div>
         )}
 
-        <div className="flex gap-3 pt-5 mt-5 border-t border-gray-200">
-          <Button type="button" variant="secondary" onClick={onClose} className="w-full">Cancel</Button>
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? <Loader2 className="animate-spin h-5 w-5 mx-auto" /> : (patient ? 'Update Patient' : 'Save Patient')}
+        {/* Action Buttons */}
+        <div className="flex gap-3 pt-4 border-t border-slate-100">
+          <Button type="button" variant="secondary" onClick={onClose} className="flex-1">Cancel</Button>
+          <Button type="submit" disabled={loading} className="flex-1">
+            {loading ? <Loader2 className="animate-spin h-5 w-5" /> : (patient ? 'Update Patient' : 'Save Patient')}
           </Button>
         </div>
       </form>
