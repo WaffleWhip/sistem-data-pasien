@@ -1,72 +1,199 @@
-﻿version: '3.8'
-
 services:
-  mongo-auth:
-    image: mongo:6
-    container_name: mongo_auth
+  # MongoDB for Auth Service
+  mongodb-auth:
+    image: mongo:latest
+    container_name: mongodb-auth
     ports:
       - "27017:27017"
     volumes:
-      - mongo_auth_data:/data/db
+      - mongodb_auth_data:/data/db
+      - ./mongodb/auth/init-users.js:/docker-entrypoint-initdb.d/init-users.js:ro
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin123
     networks:
       - patient-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  mongo-patient:
-    image: mongo:6
-    container_name: mongo_patient
+  # MongoDB for Patient Service  
+  mongodb-patient:
+    image: mongo:latest
+    container_name: mongodb-patient
     ports:
       - "27018:27017"
     volumes:
-      - mongo_patient_data:/data/db
+      - mongodb_patient_data:/data/db
+      - ./mongodb/patient/init.js:/docker-entrypoint-initdb.d/init.js:ro
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin123
     networks:
       - patient-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # MongoDB for Doctor Service
+  mongodb-doctor:
+    image: mongo:latest
+    container_name: mongodb-doctor
+    ports:
+      - "27019:27017"
+    volumes:
+      - mongodb_doctor_data:/data/db
+      - ./mongodb/doctor/init.js:/docker-entrypoint-initdb.d/init.js:ro
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin123
+    networks:
+      - patient-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Auth Service
   auth-service:
     build: ./auth-service
-    container_name: auth_service
+    container_name: auth-service
     ports:
       - "3001:3001"
     environment:
-      - PORT=3001
-      - MONGODB_URI=mongodb://mongo-auth:27017/authdb
-      - JWT_SECRET=your_super_secret_jwt_key_change_in_production
-    depends_on:
-      - mongo-auth
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://authuser:authpassword@mongodb-auth:27017/authdb?authSource=authdb
+      - JWT_SECRET=super_secret_production_jwt_key_2025
+      - JWT_EXPIRES_IN=24h
+      - BCRYPT_SALT_ROUNDS=12
+      - FRONTEND_URL=*
+      - CORS_ORIGIN=*
+    volumes:
+      - ./auth-service:/app
+      - /app/node_modules
     networks:
       - patient-network
+    depends_on:
+      mongodb-auth:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {if(r.statusCode!==200)process.exit(1);process.exit(0)}).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # Patient Service
   patient-service:
     build: ./patient-service
-    container_name: patient_service
+    container_name: patient-service
     ports:
       - "3002:3002"
     environment:
-      - PORT=3002
-      - MONGODB_URI=mongodb://mongo-patient:27017/patientdb
-    depends_on:
-      - mongo-patient
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://admin:admin123@mongodb-patient:27017/patientdb?authSource=admin
+      - CORS_ORIGIN=*
+    volumes:
+      - ./patient-service:/app
+      - /app/node_modules
     networks:
       - patient-network
+    depends_on:
+      mongodb-patient:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/health', (r) => {if(r.statusCode!==200)process.exit(1);process.exit(0)}).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # Doctor Service
+  doctor-service:
+    build: ./doctor-service
+    container_name: doctor-service
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://doctoruser:doctorpassword@mongodb-doctor:27017/doctordb?authSource=doctordb
+      - CORS_ORIGIN=*
+    volumes:
+      - ./doctor-service:/app
+      - /app/node_modules
+    networks:
+      - patient-network
+    depends_on:
+      mongodb-doctor:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3003/health', (r) => {if(r.statusCode!==200)process.exit(1);process.exit(0)}).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Gateway Service
   gateway-service:
     build: ./gateway-service
-    container_name: gateway_service
+    container_name: gateway-service
     ports:
       - "3000:3000"
     environment:
-      - PORT=3000
+      - NODE_ENV=production
       - AUTH_SERVICE_URL=http://auth-service:3001
       - PATIENT_SERVICE_URL=http://patient-service:3002
-    depends_on:
-      - auth-service
-      - patient-service
+      - DOCTOR_SERVICE_URL=http://doctor-service:3003
+      - CORS_ORIGIN=*
+    volumes:
+      - ./gateway-service:/app
+      - /app/node_modules
     networks:
       - patient-network
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      patient-service:
+        condition: service_healthy
+      doctor-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {if(r.statusCode!==200)process.exit(1);process.exit(0)}).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend Service
+  frontend-service:
+    build: ./frontend-service
+    container_name: frontend-service
+    ports:
+      - "80:80"
+    networks:
+      - patient-network
+    depends_on:
+      gateway-service:
+        condition: service_healthy
+    restart: unless-stopped
 
 networks:
   patient-network:
     driver: bridge
+    name: patient-network-production
 
 volumes:
-  mongo_auth_data:
-  mongo_patient_data:
+  mongodb_auth_data:
+    driver: local
+  mongodb_patient_data:
+    driver: local
+  mongodb_doctor_data:
+    driver: local

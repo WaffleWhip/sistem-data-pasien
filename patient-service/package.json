@@ -1,1 +1,21 @@
-{"name":"patient-service","version":"1.0.0","description":"Patient data service","main":"src/server.js","scripts":{"start":"node src/server.js","dev":"nodemon src/server.js"},"dependencies":{"axios":"^1.13.2","cors":"^2.8.5","dotenv":"^16.6.1","express":"^4.18.2","mongoose":"^7.5.0"},"devDependencies":{"nodemon":"^3.0.1"}}
+{
+  "name": "patient-service",
+  "version": "1.0.0",
+  "description": "Patient Service with MongoDB",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.6.0",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "joi": "^17.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

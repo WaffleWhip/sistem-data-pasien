@@ -1,17 +1,13 @@
-FROM node:18-alpine
+﻿FROM node:18-alpine
+
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json ./
+COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+RUN npm install --only=production
 
-# Copy app source
 COPY . .
 
-# Expose port
 EXPOSE 3001
 
-# Start command
-CMD ["npm", "start"]
+CMD ["node", "index.js"]

@@ -1,9 +1,0 @@
-﻿<% layout('layout', { title: 'Error', user: user || null }) %>
-
-<div class="alert alert-danger">
-    <h4><%= message %></h4>
-    <% if (error && Object.keys(error).length > 0) { %>
-        <pre><%= JSON.stringify(error, null, 2) %></pre>
-    <% } %>
-</div>
-<a href="/" class="btn btn-primary">Kembali ke Dashboard</a>

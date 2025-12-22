@@ -1,146 +1,168 @@
-﻿# SISTEM DATA PASIEN - MICROSERVICES ARCHITECTURE
+# Health Cure System (Sistem Data Pasien)
 
-## STATUS: BACKEND 95% SELESAI, READY FOR DEMO
+Health Cure adalah sistem manajemen data pasien berbasis Microservices Architecture. Aplikasi ini dirancang untuk menyelesaikan permasalahan pencatatan data pasien yang manual, memudahkan dokter melacak riwayat, dan memungkinkan pasien memantau data mereka sendiri.
 
-## QUICK START
-cd D:\Project\sistem-data-pasien
-docker-compose up -d
-docker-compose ps
+Aplikasi ini memenuhi kriteria Tugas Besar Pengembangan Aplikasi Terdistribusi.
 
-## SERVICES YANG BERJALAN
-| Service | Port | URL | Status |
-|---------|------|-----|--------|
-| Gateway | 3000 | http://localhost:3000 | ✅ Running |
-| Auth Service | 3001 | http://localhost:3001 | ✅ Running |
-| Patient Service | 3002 | http://localhost:3002 | ✅ Running |
-| MongoDB Auth | 27017 | localhost:27017 | ✅ Running |
-| MongoDB Patient | 27018 | localhost:27018 | ✅ Running |
+---
 
-## TESTING - CONTOH YANG BEKERJA
+## Arsitektur Sistem
 
-### Test Health (PowerShell)
-Invoke-RestMethod -Uri "http://localhost:3000/health"
-Invoke-RestMethod -Uri "http://localhost:3001/health"
-Invoke-RestMethod -Uri "http://localhost:3002/health"
+Sistem ini dibangun dengan arsitektur Microservices yang berjalan di atas Docker Containers, terdiri dari:
 
-### Register User
-$body = @{
-    username = "admin"
-    email = "admin@test.com"
-    password = "admin123"
-    role = "admin"
-} | ConvertTo-Json
+1.  Gateway Service (Port 3000)
+    *   Pintu gerbang utama (API Gateway).
+    *   Menangani routing ke service lain.
+    *   Melakukan validasi Token JWT dan menyisipkan informasi User/Role ke downstream services.
+2.  Auth Service (Port 3001)
+    *   Mengelola registrasi, login, dan validasi token (JWT).
+    *   Database: MongoDB (authdb).
+3.  Patient Service (Port 3002)
+    *   Mengelola data pasien (CRUD).
+    *   Database: MongoDB (patientdb).
+    *   Role Logic: Admin bisa akses semua, User hanya data milik sendiri.
+4.  Doctor Service (Port 3003)
+    *   Mengelola data dokter.
+    *   Database: MongoDB (doctordb).
+    *   Role Logic: Hanya Admin yang boleh akses.
+5.  Frontend Service (Port 80)
+    *   Antarmuka pengguna berbasis React + Vite + Tailwind CSS.
 
-$headers = @{"Content-Type" = "application/json"}
+---
 
-Invoke-RestMethod -Uri "http://localhost:3000/api/auth/register" `
-    -Method Post -Headers $headers -Body $body
+## Cara Menjalankan Aplikasi (How to Run)
 
-### Login & Get Token
-$loginBody = @{
-    username = "admin"
-    password = "admin123"
-} | ConvertTo-Json
+Kami menyediakan skrip otomatis agar Anda tidak perlu mengetik perintah satu per satu. Skrip ini akan mengecek apakah Docker sudah terinstal, membangun aplikasi, dan langsung membukanya di browser.
 
-$login = Invoke-RestMethod -Uri "http://localhost:3000/api/auth/login" `
-    -Method Post -Headers $headers -Body $loginBody
+### Instalasi Cepat (Otomatis)
 
-$token = $login.data.token
+1.  **Clone Repository**
+    ```bash
+    git clone <repository-url>
+    cd sistem-data-pasien
+    ```
 
-### Access Patients Data
-$authHeaders = @{
-    "Authorization" = "Bearer $token"
-    "Content-Type" = "application/json"
-}
+2.  **Jalankan Skrip sesuai OS Anda**
+    *   **Windows:** Klik 2x file `setup-windows.bat`
+    *   **Mac/Linux:** Jalankan `bash setup-mac-linux.sh` di terminal.
 
-Invoke-RestMethod -Uri "http://localhost:3000/api/patients" `
-    -Method Get -Headers $authHeaders
+Skrip akan secara otomatis mengarahkan Anda ke link download jika Docker belum terdeteksi.
 
-## REALITY CHECK - APA YANG SEBENARNYA ADA
+### Instalasi Manual (Docker Compose)
 
-### YANG BERFUNGSI 100%:
-✅ 3 Services dalam Docker Container
-✅ 2 Databases MongoDB terpisah
-✅ API Gateway di port 3000 (single entry point)
-✅ Authentication endpoints (register/login)
-✅ Patient data access dengan token
-✅ Health checks semua services
-✅ End-to-end testing PowerShell scripts
+Jika Anda lebih suka menjalankan perintah sendiri:
+1.  Pastikan Docker Desktop sudah berjalan.
+2.  Build dan jalankan container:
+    ```bash
+    docker-compose up -d --build
+    ```
+3.  Akses aplikasi di http://localhost.
 
-### YANG MASIH MOCK/SIMULASI:
-⚠️ Auth Service: Hanya return "Register endpoint works!" tanpa JWT real
-⚠️ JWT Token: Gateway generate mock token untuk testing
-⚠️ Patient Data: Sample data (4 patients) bukan dari database real
+---
 
-### API ENDPOINTS YANG BEKERJA:
-Gateway (3000):
-- GET /health ✅
-- GET / ✅
-- POST /api/auth/register ✅
-- POST /api/auth/login ✅
-- GET /api/patients ✅ (dengan token)
+## Akun Default dan Pengujian
 
-## PROJECT STRUCTURE
-sistem-data-pasien/
-├── auth-service/          # Authentication (port 3001)
-├── patient-service/       # Patient CRUD (port 3002)
-├── gateway-service/       # API Gateway (port 3000)
-├── docker-compose.yml     # Docker configuration
-└── README.md
+Saat pertama kali dijalankan, sistem akan membuat satu akun Superadmin secara otomatis.
 
-## FEATURES IMPLEMENTED
-✅ Microservices Architecture - 3 services terpisah
-✅ Basic Authentication - Register & Login endpoints
-✅ API Gateway - Single entry point
-✅ Docker Containerization - All in containers
-✅ Multi-Database - 2 MongoDB instances
-✅ Health Checks - All services
-✅ PowerShell Testing - Complete test scripts
+### 1. Akun Superadmin (Default)
+Gunakan akun ini untuk login pertama kali, mendaftarkan dokter, atau admin lain.
+*   Username: superadmin
+*   Password: superpassword
 
-## DOCKER COMMANDS
-# Start semua
-docker-compose up -d
+### Konfigurasi Keamanan (Mengubah Password Default)
 
-# Stop semua
-docker-compose down
+Secara default, password superadmin diatur di dalam skrip inisialisasi database. Jika Anda ingin mengubahnya sebelum men-deploy aplikasi:
 
-# View logs
-docker-compose logs -f
+1.  Generate Hash Baru
+    Anda perlu mengubah password teks biasa menjadi hash bcrypt. Kami menyediakan tool sederhana untuk ini:
+    *   Buka file auth-service/generate-hash.js.
+    *   Ubah variabel const password = 'superpassword'; menjadi password yang Anda inginkan.
+    *   Jalankan script:
+        ```bash
+        cd auth-service
+        node generate-hash.js
+        ```
+    *   Copy output hash yang muncul (contoh: $2b$12$...).
 
-# Rebuild
-docker-compose build
+2.  Update Script Inisialisasi
+    *   Buka file mongodb/auth/init-users.js.
+    *   Cari bagian password: pada user superadmin.
+    *   Paste hash baru yang Anda dapatkan tadi.
 
-## TROUBLESHOOTING
-Port 3000 used? Run:
-netstat -ano | findstr :3000
-taskkill /PID <PID> /F
+3.  Rebuild Database
+    Jika Anda sudah pernah menjalankan aplikasi sebelumnya, Anda harus menghapus volume database lama agar data inisialisasi ulang termuat:
+    ```bash
+    docker-compose down -v
+    docker-compose up --build
+    ```
 
-Containers not starting?
-docker-compose logs --tail=20
+### 2. Cara Membuat Akun Lain (Testing)
+Anda bisa mendaftar melalui halaman Register di Frontend, atau menggunakan Postman ke endpoint API.
+*   Admin: Memiliki akses penuh (CRUD Dokter dan Pasien).
+*   User: Hanya bisa melihat dan mengedit data pasien milik akun tersebut.
 
-## NEXT STEPS (OPTIONAL ENHANCEMENTS)
-1. Implement real JWT in auth service
-2. Add real database persistence validation
-3. Enhance error handling and validation
-4. Add more CRUD operations for patients
-5. Deploy to cloud (Azure/AWS)
+Catatan: Untuk keperluan testing/demo, endpoint Register saat ini mengizinkan pengiriman parameter role ('admin' atau 'user').
 
-## FOR PRESENTATION/DEMO:
-Sistem ini SUDAH SIAP untuk:
-- Demo microservices architecture
-- Show Docker containerization
-- Demonstrate API Gateway pattern
-- Show authentication flow
-- Test end-to-end APIs
+### 3. Menjalankan Integration Test (Opsional)
+Jika Anda memiliki Node.js terinstal di laptop, Anda bisa menjalankan skrip tes otomatis yang sudah disediakan untuk memverifikasi semua fitur berjalan:
+```bash
+# Pastikan aplikasi sedang berjalan via Docker
+node gateway-service/test-integration.js
+```
 
-## KRITERIA YANG TERPENUHI:
-✅ 3 independent services
-✅ 2 separate databases
-✅ API Gateway as single entry point
-✅ Authentication system
-✅ Docker deployment
-✅ Complete documentation
-✅ Testing scripts
+### 4. Reset Database (Menghapus Semua Data)
+Jika Anda ingin menghapus semua data (User, Pasien, Dokter) dan mengembalikan aplikasi ke kondisi awal (hanya ada Superadmin), jalankan perintah berikut:
 
-## UPDATE TERAKHIR: 2025-12-17
-SISTEM READY FOR FINAL PROJECT SUBMISSION
+```bash
+# Matikan container dan hapus volume database
+docker-compose down -v
+
+# Jalankan kembali aplikasi
+docker-compose up --build
+```
+**Peringatan:** Semua data yang telah Anda input akan hilang permanen.
+
+---
+
+## Dokumentasi API Endpoint
+
+Semua request harus melalui Gateway Service (Port 3000).
+
+### Auth (/api/auth)
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| POST | /login | Masuk ke sistem (mendapatkan JWT). |
+| POST | /register | Mendaftar akun baru. |
+| POST | /verify | Cek validitas token. |
+
+### Doctors (/api/doctors) - Admin Only
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| GET | / | Mengambil semua data dokter. |
+| POST | / | Menambah dokter baru. |
+| PUT | /:id | Update data dokter. |
+| DELETE | /:id | Hapus data dokter. |
+
+### Patients (/api/patients)
+| Method | Endpoint | Role Access |
+|--------|----------|-------------|
+| GET | / | Admin: Semua data. User: Hanya data sendiri. |
+| GET | /:id | Admin: Detail pasien. User: Hanya jika milik sendiri. |
+| POST | / | Admin Only. (User tidak bisa membuat pasien sendiri, harus Admin). |
+| PUT | /:id | Admin: Bebas update. User: Update data sendiri. |
+| DELETE | /:id | Admin Only. |
+
+---
+
+## Teknologi yang Digunakan
+
+*   Backend: Node.js, Express.js
+*   Database: MongoDB (Multi-database instance)
+*   Frontend: React.js, Vite, Tailwind CSS
+*   Containerization: Docker dan Docker Compose
+*   Security: JSON Web Token (JWT), BCrypt, Helmet, CORS
+*   Validation: Joi
+
+---
+
+**&copy; 2025 Health Cure System | Tugas Besar Pengembangan Aplikasi Terdistribusi**
