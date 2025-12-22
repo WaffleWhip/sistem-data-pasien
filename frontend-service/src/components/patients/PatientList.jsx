@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
-import { Users, Plus, Search, Edit2, Trash2, Calendar, Phone, MapPin, Activity, User, Stethoscope, Heart } from 'lucide-react';
+import { Users, Plus, Search, Edit2, Trash2, Calendar, Phone, MapPin, Activity, Stethoscope, Heart } from 'lucide-react';
 import PatientForm from './PatientForm';
 import Button from '../ui/Button';
 
