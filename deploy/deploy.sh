@@ -1,8 +1,7 @@
 #!/bin/bash
 # HealthCure - Complete Automated Deployment
 # 
-# Fully automated - installs everything needed, deploys, and cleans up
-# No prerequisites required! Just run this script.
+# Fully automated - uses native SSH, no sshpass required
 #
 # Usage: ./deploy.sh
 
@@ -49,22 +48,7 @@ if ! command -v ssh &> /dev/null; then
     fi
 fi
 
-# Check/install sshpass
-if ! command -v sshpass &> /dev/null; then
-    echo "  Installing sshpass..."
-    if command -v apt-get &> /dev/null; then
-        sudo apt-get update > /dev/null 2>&1
-        sudo apt-get install -y sshpass > /dev/null 2>&1
-    elif command -v yum &> /dev/null; then
-        sudo yum install -y sshpass > /dev/null 2>&1
-    elif command -v brew &> /dev/null; then
-        brew install sshpass > /dev/null 2>&1
-    else
-        echo "Warning: Cannot auto-install sshpass. Please install manually."
-    fi
-fi
-
-echo "Dependencies ready"
+echo "SSH ready"
 echo ""
 
 # Step 1: Create deployment script
@@ -133,7 +117,7 @@ echo "[3/6] Connecting to Azure VM..."
 echo "      $VM_USERNAME@$VM_PUBLIC_IP"
 
 # Verify SSH works
-if ! sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 "$VM_USERNAME@$VM_PUBLIC_IP" "echo Connected" > /dev/null 2>&1; then
+if ! ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 "$VM_USERNAME@$VM_PUBLIC_IP" "echo Connected" > /dev/null 2>&1; then
     echo "Error: Cannot connect to VM"
     echo "Please verify:"
     echo "  - VM is running"
@@ -146,17 +130,17 @@ echo ""
 
 # Step 3: Upload and execute
 echo "[4/6] Uploading deployment script..."
-sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$TEMP_DIR/remote-deploy.sh" "$VM_USERNAME@$VM_PUBLIC_IP:/tmp/deploy.sh" > /dev/null 2>&1
+scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$TEMP_DIR/remote-deploy.sh" "$VM_USERNAME@$VM_PUBLIC_IP:/tmp/deploy.sh" > /dev/null 2>&1
 echo "Upload complete"
 echo ""
 
 echo "[5/6] Running deployment on VM..."
-sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$VM_USERNAME@$VM_PUBLIC_IP" "bash /tmp/deploy.sh"
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$VM_USERNAME@$VM_PUBLIC_IP" "bash /tmp/deploy.sh"
 echo ""
 
 # Step 4: Verify
 echo "[6/6] Verifying deployment..."
-SERVICES=$(sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$VM_USERNAME@$VM_PUBLIC_IP" "docker compose -f ~/sistem-data-pasien/docker-compose.yml ps --quiet" 2>/dev/null | wc -l)
+SERVICES=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$VM_USERNAME@$VM_PUBLIC_IP" "docker compose -f ~/sistem-data-pasien/docker-compose.yml ps --quiet" 2>/dev/null | wc -l)
 
 if [ "$SERVICES" -gt 0 ]; then
     echo "Services running: $SERVICES containers"
