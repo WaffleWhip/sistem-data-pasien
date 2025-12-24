@@ -2,17 +2,17 @@
 # 
 # DESCRIPTION:
 #   Automated deployment script to deploy HealthCure application to Azure VM
-#   Installs SSH client if needed, Docker, Docker Compose, and starts all services
+#   Uses PuTTY tools (plink/pscp) for reliable SSH connectivity with password auth
+#   Installs Docker, Docker Compose, and starts all services
 #
 # USAGE:
 #   .\deploy-to-azure.ps1
 #   .\deploy-to-azure.ps1 -ConfigFile "custom-config.env"
 #
 # PREREQUISITES:
-#   1. Windows 10+ or newer
-#   2. Administrator privileges (for SSH installation)
-#   3. vm-config.env file configured with correct Azure VM credentials
-#   4. Azure VM running with SSH access enabled
+#   1. PuTTY tools installed (plink.exe and pscp.exe in PATH)
+#   2. vm-config.env file configured with correct Azure VM credentials
+#   3. Azure VM running with SSH access enabled
 #
 # AUTHOR: HealthCure Dev Team
 
@@ -27,31 +27,25 @@ Write-Host "HealthCure - Azure VM Deployment" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Check SSH availability
-Write-Host "[0/7] Checking SSH client..." -ForegroundColor Yellow
-$sshTest = & ssh -V 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "SSH client not found. Installing OpenSSH..." -ForegroundColor Yellow
-    
-    # Check if running as administrator
-    $isAdmin = [bool]([System.Security.Principal.WindowsIdentity]::GetCurrent().Groups -match "S-1-5-32-544")
-    if (-not $isAdmin) {
-        Write-Host "Error: Administrator privileges required to install OpenSSH" -ForegroundColor Red
-        Write-Host "Please run this script as Administrator" -ForegroundColor Yellow
-        exit 1
-    }
-    
-    try {
-        Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0 -ErrorAction SilentlyContinue | Out-Null
-        Write-Host "SSH client installed successfully" -ForegroundColor Green
-    } catch {
-        Write-Host "Error: Could not install SSH client" -ForegroundColor Red
-        Write-Host "Please install manually or use WSL/Git Bash instead" -ForegroundColor Yellow
-        exit 1
-    }
-} else {
-    Write-Host "SSH client found" -ForegroundColor Green
+# Check PuTTY tools
+Write-Host "[0/7] Checking PuTTY tools..." -ForegroundColor Yellow
+$plinkPath = & where.exe plink.exe 2>$null
+$pscpPath = & where.exe pscp.exe 2>$null
+
+if (-not $plinkPath -or -not $pscpPath) {
+    Write-Host "PuTTY tools not found in PATH" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Please download and install PuTTY:" -ForegroundColor Cyan
+    Write-Host "  1. Download: https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html" -ForegroundColor Gray
+    Write-Host "  2. Install to: C:\Program Files\PuTTY" -ForegroundColor Gray
+    Write-Host "  3. Or add PuTTY folder to system PATH" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "Alternative: Use bash script with sshpass" -ForegroundColor Cyan
+    Write-Host "  cd deploy" -ForegroundColor Gray
+    Write-Host "  ./deploy-to-azure.sh" -ForegroundColor Gray
+    exit 1
 }
+Write-Host "PuTTY tools found" -ForegroundColor Green
 Write-Host ""
 
 # 1. Read configuration file
@@ -78,7 +72,7 @@ Write-Host ""
 try {
     # 2. Verify SSH connectivity
     Write-Host "[2/7] Verifying SSH connectivity..." -ForegroundColor Yellow
-    $sshTest = & ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP)" "echo OK" 2>&1
+    $sshTest = & plink.exe -pw $config.VM_PASSWORD -l $config.VM_USERNAME -P $config.VM_SSH_PORT $config.VM_PUBLIC_IP "echo OK" 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Error: Cannot connect to VM via SSH" -ForegroundColor Red
         Write-Host "Please verify:" -ForegroundColor Yellow
@@ -92,7 +86,7 @@ try {
 
     # 3. Install Docker and dependencies
     Write-Host "[3/7] Installing Docker and Docker Compose..." -ForegroundColor Yellow
-    & ssh -o StrictHostKeyChecking=no "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP)" @"
+    $dockerScript = @"
 set -e
 sudo apt-get update -y > /dev/null 2>&1
 sudo apt-get upgrade -y > /dev/null 2>&1
@@ -106,6 +100,8 @@ sudo chmod +x /usr/local/bin/docker-compose
 sudo usermod -aG docker \$USER > /dev/null 2>&1
 echo "Docker and Docker Compose installed"
 "@
+    
+    $dockerScript | & plink.exe -pw $config.VM_PASSWORD -l $config.VM_USERNAME -P $config.VM_SSH_PORT $config.VM_PUBLIC_IP 2>&1 | Out-Null
     Write-Host "Installation complete" -ForegroundColor Green
     Write-Host ""
 
@@ -113,30 +109,31 @@ echo "Docker and Docker Compose installed"
     Write-Host "[4/7] Uploading project files to VM..." -ForegroundColor Yellow
     $projectRoot = "$PSScriptRoot\.."
     
-    & ssh -o StrictHostKeyChecking=no "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP)" "mkdir -p ~/sistem-data-pasien" 2>$null
-    & scp -r -o StrictHostKeyChecking=no "$projectRoot\docker-compose.yml" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/" 2>$null
-    & scp -r -o StrictHostKeyChecking=no "$projectRoot\docker" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/" 2>$null
-    & scp -r -o StrictHostKeyChecking=no "$projectRoot\frontend" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/" 2>$null
-    & scp -r -o StrictHostKeyChecking=no "$projectRoot\main-service" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/" 2>$null
-    & scp -r -o StrictHostKeyChecking=no "$projectRoot\auth-service" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/" 2>$null
+    & plink.exe -pw $config.VM_PASSWORD -l $config.VM_USERNAME -P $config.VM_SSH_PORT $config.VM_PUBLIC_IP "mkdir -p ~/sistem-data-pasien" 2>$null
+    & pscp.exe -pw $config.VM_PASSWORD -r "$projectRoot\docker-compose.yml" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):/home/$($config.VM_USERNAME)/sistem-data-pasien/" 2>$null
+    & pscp.exe -pw $config.VM_PASSWORD -r "$projectRoot\docker" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):/home/$($config.VM_USERNAME)/sistem-data-pasien/" 2>$null
+    & pscp.exe -pw $config.VM_PASSWORD -r "$projectRoot\frontend" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):/home/$($config.VM_USERNAME)/sistem-data-pasien/" 2>$null
+    & pscp.exe -pw $config.VM_PASSWORD -r "$projectRoot\main-service" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):/home/$($config.VM_USERNAME)/sistem-data-pasien/" 2>$null
+    & pscp.exe -pw $config.VM_PASSWORD -r "$projectRoot\auth-service" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):/home/$($config.VM_USERNAME)/sistem-data-pasien/" 2>$null
     
     Write-Host "Project files uploaded" -ForegroundColor Green
     Write-Host ""
 
     # 5. Start services via Docker Compose
     Write-Host "[5/7] Starting services..." -ForegroundColor Yellow
-    & ssh -o StrictHostKeyChecking=no "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP)" "newgrp docker" 2>$null
-    & ssh -o StrictHostKeyChecking=no "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP)" @"
+    $startScript = @"
 cd ~/sistem-data-pasien
 docker compose up -d
 sleep 5
 docker compose ps
 "@
+    
+    $startScript | & plink.exe -pw $config.VM_PASSWORD -l $config.VM_USERNAME -P $config.VM_SSH_PORT $config.VM_PUBLIC_IP 2>&1
     Write-Host ""
 
     # 6. Verify services
     Write-Host "[6/7] Verifying services..." -ForegroundColor Yellow
-    & ssh -o StrictHostKeyChecking=no "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP)" "docker compose -f ~/sistem-data-pasien/docker-compose.yml ps" 2>$null
+    & plink.exe -pw $config.VM_PASSWORD -l $config.VM_USERNAME -P $config.VM_SSH_PORT $config.VM_PUBLIC_IP "docker compose -f ~/sistem-data-pasien/docker-compose.yml ps" 2>$null
     Write-Host "Services verified" -ForegroundColor Green
     Write-Host ""
 
@@ -160,8 +157,8 @@ docker compose ps
     Write-Host "  3. Login with provided credentials"
     Write-Host ""
     
-    Write-Host "Connect to VM:" -ForegroundColor Yellow
-    Write-Host "  ssh $($config.VM_USERNAME)@$($config.VM_PUBLIC_IP)" -ForegroundColor Gray
+    Write-Host "Connect to VM (with PuTTY):" -ForegroundColor Yellow
+    Write-Host "  plink.exe -pw $($config.VM_PASSWORD) -l $($config.VM_USERNAME) $($config.VM_PUBLIC_IP)" -ForegroundColor Gray
     Write-Host ""
 
 } catch {
