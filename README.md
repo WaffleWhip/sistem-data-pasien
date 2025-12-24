@@ -41,12 +41,11 @@ GITHUB_REPO=https://github.com/YOUR_USERNAME/sistem-data-pasien.git
 
 **3. Deploy:**
 ```powershell
-# Run deployment script
-.\deploy\deploy-vm.ps1
+# Windows PowerShell
+.\deploy\deploy-to-azure.ps1
 
-# Atau manual SSH ke VM dan jalankan setup commands
-ssh username@vm_ip
-# Copy-paste commands dari vm-setup.sh
+# Linux/Mac/WSL Bash
+./deploy/deploy-to-azure.sh
 ```
 
 **4. Access:**
@@ -56,15 +55,7 @@ http://VM_PUBLIC_IP:3000
 
 ---
 
-### Deploy ke Azure Container Apps
-
-```powershell
-# Windows PowerShell
-.\deploy\deploy-azure.ps1
-
-# Linux/Mac/Cloud Shell
-./deploy/deploy-azure.sh
-```
+### Deploy ke Azure VM (Automated)
 
 > 📖 Panduan lengkap: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 
@@ -227,9 +218,11 @@ sistem-data-pasien/
 ├── main-service/        # Patient/Doctor CRUD & Visit management
 ├── frontend/            # Web interface & API gateway
 ├── docker/              # MongoDB initialization scripts
-├── deploy/              # Azure deployment scripts
-│   ├── deploy-azure.ps1   # Windows PowerShell
-│   └── deploy-azure.sh    # Bash/Linux/Mac
+├── deploy/              # Azure deployment scripts & config
+│   ├── deploy-to-azure.ps1   # Automated deployment (Windows)
+│   ├── deploy-to-azure.sh    # Automated deployment (Linux/Mac/WSL)
+│   ├── vm-config.env.example # Configuration template
+│   └── vm-config.env         # Configuration (local only, .gitignore)
 ├── docker-compose.yml   # Local development
 ├── README.md            # Quick start & overview
 └── DEPLOYMENT_GUIDE.md  # Azure deployment guide
