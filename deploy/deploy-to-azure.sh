@@ -13,6 +13,7 @@
 #   1. OpenSSH client installed (Linux/Mac or WSL on Windows)
 #   2. vm-config.env file configured with Azure VM credentials
 #   3. Azure VM running with SSH access enabled
+#   4. sshpass utility (for non-interactive password authentication)
 #
 # AUTHOR: HealthCure Dev Team
 
@@ -26,7 +27,7 @@ echo "=========================================="
 echo ""
 
 # 1. Read configuration file
-echo "[1/6] Reading configuration..."
+echo "[1/7] Reading configuration..."
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "Error: vm-config.env not found at $CONFIG_FILE"
     exit 1
@@ -41,9 +42,25 @@ echo "  VM IP: $VM_PUBLIC_IP"
 echo "  User: $VM_USERNAME"
 echo ""
 
-# 2. Verify SSH connectivity
-echo "[2/6] Verifying SSH connectivity..."
-if ! ssh -o BatchMode=yes -o ConnectTimeout=5 "$VM_USERNAME@$VM_PUBLIC_IP" "echo OK" >/dev/null 2>&1; then
+# 2. Check sshpass utility
+echo "[2/7] Checking sshpass utility..."
+if ! command -v sshpass &> /dev/null; then
+    echo "Warning: sshpass not found. Installing..."
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update > /dev/null 2>&1 && sudo apt-get install -y sshpass > /dev/null 2>&1
+    elif command -v brew &> /dev/null; then
+        brew install sshpass > /dev/null 2>&1
+    else
+        echo "Error: Cannot install sshpass. Please install manually."
+        exit 1
+    fi
+fi
+echo "sshpass available"
+echo ""
+
+# 3. Verify SSH connectivity
+echo "[3/7] Verifying SSH connectivity..."
+if ! sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 "$VM_USERNAME@$VM_PUBLIC_IP" "echo OK" >/dev/null 2>&1; then
     echo "Error: Cannot connect to VM via SSH"
     echo "Please verify:"
     echo "  1. Azure VM is running"
@@ -54,9 +71,9 @@ fi
 echo "SSH connection verified"
 echo ""
 
-# 3. Install Docker and dependencies
-echo "[3/6] Installing Docker and Docker Compose..."
-ssh "$VM_USERNAME@$VM_PUBLIC_IP" << 'DOCKER_SETUP'
+# 4. Install Docker and dependencies
+echo "[4/7] Installing Docker and Docker Compose..."
+sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$VM_USERNAME@$VM_PUBLIC_IP" << 'DOCKER_SETUP'
 set -e
 sudo apt-get update -y > /dev/null 2>&1
 sudo apt-get upgrade -y > /dev/null 2>&1
@@ -73,23 +90,23 @@ DOCKER_SETUP
 echo "Installation complete"
 echo ""
 
-# 4. Upload project files
-echo "[4/6] Uploading project files to VM..."
+# 5. Upload project files
+echo "[5/7] Uploading project files to VM..."
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-ssh "$VM_USERNAME@$VM_PUBLIC_IP" "mkdir -p ~/sistem-data-pasien" 2>/dev/null
-scp -r "$PROJECT_ROOT/docker-compose.yml" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
-scp -r "$PROJECT_ROOT/docker" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
-scp -r "$PROJECT_ROOT/frontend" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
-scp -r "$PROJECT_ROOT/main-service" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
-scp -r "$PROJECT_ROOT/auth-service" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
+sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$VM_USERNAME@$VM_PUBLIC_IP" "mkdir -p ~/sistem-data-pasien" 2>/dev/null
+sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r "$PROJECT_ROOT/docker-compose.yml" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
+sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r "$PROJECT_ROOT/docker" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
+sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r "$PROJECT_ROOT/frontend" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
+sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r "$PROJECT_ROOT/main-service" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
+sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r "$PROJECT_ROOT/auth-service" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
 
 echo "Project files uploaded"
 echo ""
 
-# 5. Start services via Docker Compose
-echo "[5/6] Starting services..."
-ssh "$VM_USERNAME@$VM_PUBLIC_IP" << 'DOCKER_RUN'
+# 6. Start services via Docker Compose
+echo "[6/7] Starting services..."
+sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$VM_USERNAME@$VM_PUBLIC_IP" << 'DOCKER_RUN'
 cd ~/sistem-data-pasien
 docker compose up -d
 sleep 5
@@ -97,8 +114,8 @@ docker compose ps
 DOCKER_RUN
 echo ""
 
-# 6. Display summary
-echo "[6/6] Deployment Summary"
+# 7. Display summary
+echo "[7/7] Deployment Summary"
 echo ""
 echo "=========================================="
 echo "Deployment Complete"
