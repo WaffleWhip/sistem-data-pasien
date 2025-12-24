@@ -210,30 +210,19 @@ try {
 
 # Step 3: Create Resource Group
 Write-Host "[3/8] Creating Resource Group..." -ForegroundColor Yellow
-try {
-    # Check if resource group is being deleted
+Invoke-WithRetry -Description "Create Resource Group '$ResourceGroup'" -MaxRetries 5 {
     $rgStatus = az group exists --name $ResourceGroup
     if ($rgStatus -eq "true") {
-        Write-Warn "Resource group '$ResourceGroup' already exists"
+        Write-Warn "Resource group '$ResourceGroup' sudah ada"
     } else {
-        Write-Info "Creating resource group '$ResourceGroup'..."
         az group create --name $ResourceGroup --location $Location --output none
-        Write-Success "Resource group created"
     }
-} catch {
-    Show-Error "Failed to create Resource Group: $($_.Exception.Message)" `
-        "Resource group may be in deprovisioning state. Wait 5 minutes and try again with: `n.\deploy\deploy-azure.ps1 -ResourceGroup 'healthcure-rg-new'"
 }
 
 # Step 4: Create Azure Container Registry
 Write-Host "[4/8] Creating Azure Container Registry..." -ForegroundColor Yellow
-try {
-    Write-Info "Creating ACR '$AcrName'..."
+Invoke-WithRetry -Description "Create ACR '$AcrName'" -MaxRetries 5 {
     az acr create --resource-group $ResourceGroup --name $AcrName --sku Basic --location $Location --admin-enabled true --output none
-    Write-Success "ACR created: $AcrName"
-} catch {
-    Show-Error "Failed to create ACR: $($_.Exception.Message)" `
-        "Possible causes:`n1. ACR name already exists (try different name)`n2. Resource group doesn't exist yet (wait 5 minutes)"
 }
 
 $AcrServer = "$AcrName.azurecr.io"
@@ -241,12 +230,8 @@ Write-Success "ACR Server: $AcrServer"
 
 # Step 5: Login ke ACR
 Write-Host "[5/8] Login ke ACR..." -ForegroundColor Yellow
-try {
+Invoke-WithRetry -Description "Login to ACR" -MaxRetries 5 {
     az acr login --name $AcrName
-    Write-Success "Logged in to ACR"
-} catch {
-    Show-Error "Failed to login to ACR: $($_.Exception.Message)" `
-        "Check if ACR was created successfully or wait a moment for it to be ready"
 }
 
 # Step 6: Build dan Push Docker Images
@@ -325,18 +310,13 @@ try {
 
 # Get ACR credentials
 Write-Info "Getting ACR credentials..."
-try {
-    $AcrUsername = az acr credential show --name $AcrName --query username -o tsv
-    $AcrPassword = az acr credential show --name $AcrName --query 'passwords[0].value' -o tsv
+Invoke-WithRetry -Description "Retrieve ACR credentials" -MaxRetries 5 {
+    $script:AcrUsername = az acr credential show --name $AcrName --query username -o tsv
+    $script:AcrPassword = az acr credential show --name $AcrName --query 'passwords[0].value' -o tsv
     
     if (-not $AcrUsername -or -not $AcrPassword) {
-        Show-Error "Failed to get ACR credentials" `
-            "ACR may not be fully initialized yet. Wait a moment and try again"
+        throw "ACR credentials tidak ditemukan"
     }
-    Write-Success "ACR credentials retrieved"
-} catch {
-    Show-Error "Failed to retrieve ACR credentials: $($_.Exception.Message)" `
-        "Check if ACR exists and is fully created"
 }
 
 # Step 8: Deploy Container Apps
@@ -482,20 +462,16 @@ Deploy-ContainerApp `
     } `
     -WaitSeconds 15
 
-# Get Frontend URL
+# Get Frontend URL dengan polling
 Write-Host ""
 Write-Info "Retrieving frontend URL..."
-try {
-    Start-Sleep -Seconds 10
-    $FrontendUrl = az containerapp show --name healthcure-frontend --resource-group $ResourceGroup --query 'properties.configuration.ingress.fqdn' -o tsv
-    
-    if (-not $FrontendUrl) {
-        Show-Error "Failed to retrieve frontend URL" `
-            "Frontend container may not be fully ready. Wait 2-3 minutes and check with:`naz containerapp show --name healthcure-frontend --resource-group $ResourceGroup"
+Wait-ForResource -ResourceType "containerapp" -ResourceName "healthcure-frontend" -ResourceGroup $ResourceGroup -MaxWaitSeconds 180 {
+    $url = az containerapp show --name healthcure-frontend --resource-group $ResourceGroup --query 'properties.configuration.ingress.fqdn' -o tsv 2>/dev/null
+    if ($url -and $url.Length -gt 0) {
+        $script:FrontendUrl = $url
+        return $true
     }
-} catch {
-    Show-Error "Failed to get frontend URL: $($_.Exception.Message)" `
-        "Check container apps status with:`naz containerapp list --resource-group $ResourceGroup -o table"
+    return $false
 }
 
 Write-Host ""
