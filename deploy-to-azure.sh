@@ -3,7 +3,7 @@
 # Configuration
 APP_NAME="app-pasien-$RANDOM"
 RG_NAME="rg-pasien-project"
-LOCATION="indonesiacentral" 
+LOCATION="eastasia" 
 ACR_NAME="regpasien$RANDOM"
 PLAN_NAME="plan-pasien"
 
@@ -55,6 +55,9 @@ az acr build --registry $ACR_NAME --image pasien-frontend:latest ./frontend
 # 4. Create App Service Plan
 echo -e "${GREEN}Creating App Service Plan...${NC}"
 az appservice plan create --name $PLAN_NAME --resource-group $RG_NAME --sku B1 --is-linux
+
+echo "Waiting 10s for Plan to register..."
+sleep 10
 
 # 5. Create Web App for Containers
 echo -e "${GREEN}Creating Web App...${NC}"
