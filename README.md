@@ -122,40 +122,52 @@ docker compose up -d --build
 docker compose logs -f [service]
 ```
 
-### Deploy ke Azure Container Apps
+### Deploy ke Azure (Automated Script)
+
+Kami menyediakan script otomatis untuk deploy ke Azure Web App for Containers.
+
+**Prerequisites:**
+1. Akun Azure (Azure for Students supported)
+2. Akses ke [Azure Cloud Shell](https://shell.azure.com) (Bash)
+
+**Langkah-langkah:**
+
+1. Buka Azure Cloud Shell (Bash).
+2. Clone repository ini:
+   ```bash
+   git clone https://github.com/WaffleWhip/sistem-data-pasien.git
+   cd sistem-data-pasien
+   ```
+3. Jalankan script deployment:
+   ```bash
+   bash deploy-to-azure.sh
+   ```
+4. Script akan otomatis:
+   - Mencari region yang valid (default: Indonesia Central).
+   - Membuat Resource Group & Container Registry.
+   - Build image docker di cloud.
+   - Membuat App Service Plan & Web App.
+   - Memberikan URL aplikasi yang sudah jadi.
+
+**Masalah Umum: Provider Masih "Registering"**
+
+Jika Anda melihat error bahwa `Microsoft.ContainerRegistry` atau `Microsoft.Web` sedang dalam status "Registering", jalankan perintah ini di Cloud Shell untuk memantau statusnya hingga berubah menjadi "Registered":
 
 ```bash
-# 1. Login & create resource
-az login
-az group create --name healthcure-rg --location southeastasia
-
-# 2. Create container registry
-az acr create --resource-group healthcure-rg \
-  --name healthcureacr --sku Basic
-az acr login --name healthcureacr
-
-# 3. Build & push images
-docker-compose build
-
-docker tag sistem-data-pasien-frontend:latest \
-  healthcureacr.azurecr.io/healthcure-frontend:latest
-docker push healthcureacr.azurecr.io/healthcure-frontend:latest
-
-# (Ulangi untuk auth-service & main-service)
-
-# 4. Create container environment
-az containerapp env create --name healthcure-env \
-  --resource-group healthcure-rg --location southeastasia
-
-# 5. Deploy frontend
-az containerapp create --name healthcure-frontend \
-  --resource-group healthcure-rg \
-  --environment healthcure-env \
-  --image healthcureacr.azurecr.io/healthcure-frontend:latest \
-  --target-port 3000 --ingress external
-
-# (Ulangi untuk services lain)
+while true; do
+  acr_status=$(az provider show -n Microsoft.ContainerRegistry --query "registrationState" -o tsv)
+  web_status=$(az provider show -n Microsoft.Web --query "registrationState" -o tsv)
+  echo "ACR: $acr_status | Web: $web_status"
+  
+  if [ "$acr_status" == "Registered" ] && [ "$web_status" == "Registered" ]; then
+    echo "✅ Semua provider sudah terdaftar! Silakan jalankan deploy script lagi."
+    break
+  fi
+  sleep 10
+done
 ```
+
+Tunggu hingga script di atas berhenti dan menampilkan pesan sukses, lalu coba deploy lagi.
 
 ### Environment Variables
 
