@@ -99,12 +99,17 @@
       app.showLoading();
       
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
         const response = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({ email, password }),
+          signal: controller.signal
         });
         
+        clearTimeout(timeoutId);
         const data = await response.json();
         
         if (data.success) {
@@ -118,17 +123,26 @@
           alertContainer.innerHTML = `
             <div class="alert alert-danger">
               <i class="fas fa-exclamation-circle"></i>
-              ${data.message}
+              ${data.message || 'Login gagal. Silakan coba lagi.'}
             </div>
           `;
         }
       } catch (error) {
-        alertContainer.innerHTML = `
-          <div class="alert alert-danger">
-            <i class="fas fa-exclamation-circle"></i>
-            Terjadi kesalahan. Silakan coba lagi.
-          </div>
-        `;
+        if (error.name === 'AbortError') {
+          alertContainer.innerHTML = `
+            <div class="alert alert-danger">
+              <i class="fas fa-exclamation-circle"></i>
+              Koneksi timeout. Silakan periksa apakah server sedang berjalan.
+            </div>
+          `;
+        } else {
+          alertContainer.innerHTML = `
+            <div class="alert alert-danger">
+              <i class="fas fa-exclamation-circle"></i>
+              Terjadi kesalahan: ${error.message || 'Silakan coba lagi.'}
+            </div>
+          `;
+        }
       } finally {
         app.hideLoading();
       }

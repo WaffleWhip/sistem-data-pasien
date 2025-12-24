@@ -521,9 +521,52 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', service: 'frontend-gateway' });
+// Health check - enhanced for Azure Container Apps
+app.get('/health', async (req, res) => {
+  try {
+    // Quick check to auth and main services
+    const checks = { auth: 'unknown', main: 'unknown' };
+    
+    try {
+      const authRes = await axios.get(`${AUTH_SERVICE_URL}/health`, { timeout: 3000 });
+      checks.auth = authRes.data?.status || 'OK';
+    } catch (e) {
+      checks.auth = 'unreachable';
+    }
+    
+    try {
+      const mainRes = await axios.get(`${MAIN_SERVICE_URL}/health`, { timeout: 3000 });
+      checks.main = mainRes.data?.status || 'OK';
+    } catch (e) {
+      checks.main = 'unreachable';
+    }
+    
+    const allOk = checks.auth === 'OK' && checks.main === 'OK';
+    
+    res.json({ 
+      status: allOk ? 'OK' : 'DEGRADED', 
+      service: 'frontend-gateway',
+      dependencies: checks,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.json({ 
+      status: 'OK', 
+      service: 'frontend-gateway',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received. Shutting down gracefully...');
+  process.exit(0);
 });
 
 // Error handling
@@ -540,8 +583,12 @@ app.use((req, res) => {
   res.status(404).render('404');
 });
 
-// Start server
+// Start server - bind to 0.0.0.0 for Azure Container Apps
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Frontend Gateway running on port ${PORT}`);
+const HOST = '0.0.0.0';
+
+app.listen(PORT, HOST, () => {
+  console.log(`Frontend Gateway running on ${HOST}:${PORT}`);
+  console.log(`Auth Service URL: ${AUTH_SERVICE_URL}`);
+  console.log(`Main Service URL: ${MAIN_SERVICE_URL}`);
 });

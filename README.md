@@ -20,6 +20,42 @@ Tunggu ~30 detik, lalu akses: **http://localhost:3000**
 
 **Admin Login:** `admin@healthcure.com` / `admin123`
 
+### Deploy ke Azure VM (Recommended untuk Production)
+
+**1. Persiapan:**
+- Buat Azure VM (Standard B2ats v2) di region East Asia
+- Install Ubuntu Server 24.04 LTS
+- Buka SSH port (22)
+
+**2. Setup:**
+```powershell
+# Edit file konfigurasi dengan credentials VM Anda
+# deploy/vm-config.env
+
+# Isi:
+VM_USERNAME=your_username
+VM_PASSWORD=your_password
+VM_PUBLIC_IP=your_vm_public_ip
+GITHUB_REPO=https://github.com/YOUR_USERNAME/sistem-data-pasien.git
+```
+
+**3. Deploy:**
+```powershell
+# Run deployment script
+.\deploy\deploy-vm.ps1
+
+# Atau manual SSH ke VM dan jalankan setup commands
+ssh username@vm_ip
+# Copy-paste commands dari vm-setup.sh
+```
+
+**4. Access:**
+```
+http://VM_PUBLIC_IP:3000
+```
+
+---
+
 ### Deploy ke Azure Container Apps
 
 ```powershell
@@ -147,6 +183,39 @@ Akses Menu "Kunjungan Saya"
 | Database connection error | docker compose restart mongodb-auth mongodb-main |
 | Port sudah dipakai | Ubah port di docker-compose.yml |
 | Admin belum ada | Sistem auto-create saat startup |
+| **Login page loading terus (buffer)** | **Cek apakah auth-service ready. Lihat troubleshooting login di bawah** |
+
+### Login Buffer / Timeout Issues
+
+Jika login page terus loading/buffer, kemungkinan:
+
+**1. Auth Service tidak ready**
+```bash
+# Check logs
+docker compose logs auth-service
+
+# Restart service
+docker compose restart auth-service
+```
+
+**2. MongoDB belum connect**
+```bash
+# Restart database
+docker compose restart mongodb-auth
+
+# Wait 10-15 detik sebelum login
+```
+
+**3. Di Azure Container Apps**
+- Pastikan containers telah di-deploy dan running
+- Check health status: `az containerapp show --name healthcure-auth --resource-group healthcure-rg --query properties.provisioningState -o tsv`
+- View logs: `az containerapp logs show --name healthcure-auth --resource-group healthcure-rg --tail 50`
+- Tunggu 2-3 menit untuk services fully initialize
+
+**4. Network timeout (di Azure)**
+- Frontend tidak bisa akses auth-service melalui internal DNS
+- Pastikan deployment using correct container names di docker-compose.yml
+- Check environment variables: `az containerapp show --name healthcure-frontend --resource-group healthcure-rg --query properties.template.containers[].env -o json`
 
 ---
 

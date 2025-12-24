@@ -1,907 +1,288 @@
-# HealthCure - Azure Container Apps Deployment (Windows PowerShell)
-# Build lokal lalu push ke Azure Container Registry
-# With dependency checking, auto-download, and enhanced error handling
+# HealthCure - Azure Container Apps Deployment Script
+# Build lokal, push ke ACR, deploy ke Container Apps
 
 param(
     [string]$ResourceGroup = "healthcure-rg",
     [string]$Location = "eastasia",
-    [string]$AcrName = "healthcureacr$(Get-Random -Minimum 10000 -Maximum 99999)"
+    [string]$AcrName = ""
 )
 
 $ErrorActionPreference = "Stop"
 
-# Function untuk handle errors dengan jelas
-function Show-Error {
-    param(
-        [string]$Message,
-        [string]$Solution = "",
-        [int]$ExitCode = 1
-    )
-    
-    Write-Host ""
-    Write-Host "================================================" -ForegroundColor Red
-    Write-Host " ❌ ERROR" -ForegroundColor Red
-    Write-Host "================================================" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "Problem: $Message" -ForegroundColor Red
-    Write-Host ""
-    
-    if ($Solution) {
-        Write-Host "Solution:" -ForegroundColor Yellow
-        Write-Host "$Solution" -ForegroundColor Yellow
-        Write-Host ""
-    }
-    
-    Write-Host "================================================" -ForegroundColor Red
-    exit $ExitCode
-}
-
-# Function untuk log info
-function Write-Info {
-    param([string]$Message)
-    Write-Host "$Message" -ForegroundColor Cyan
-}
-
-# Function untuk log success
-function Write-Success {
-    param([string]$Message)
-    Write-Host "✓ $Message" -ForegroundColor Green
-}
-
-# Function untuk log warning
-function Write-Warn {
-    param([string]$Message)
-    Write-Host "⚠ $Message" -ForegroundColor Yellow
-}
-
-# Function untuk retry dengan loop sampai berhasil
-function Invoke-WithRetry {
-    param(
-        [scriptblock]$ScriptBlock,
-        [string]$Description,
-        [int]$MaxRetries = 30,
-        [int]$DelaySeconds = 5
-    )
-    
-    $attempt = 1
-    
-    while ($attempt -le $MaxRetries) {
-        try {
-            Write-Host "  [Attempt $attempt/$MaxRetries] $Description..." -ForegroundColor Gray
-            & $ScriptBlock
-            Write-Success "$Description"
-            return $true
-        } catch {
-            if ($attempt -eq $MaxRetries) {
-                Show-Error "Failed after $MaxRetries attempts: $($_.Exception.Message)" `
-                    "Check Azure subscription status, quota limits, or try again later`nError details: $($_.Exception.Message)"
-            }
-            
-            $timeLeft = ($MaxRetries - $attempt) * $DelaySeconds
-            Write-Host "  ⏳ Waiting $DelaySeconds seconds before retry... ($timeLeft seconds left)" -ForegroundColor DarkGray
-            Start-Sleep -Seconds $DelaySeconds
-            $attempt++
-        }
-    }
-}
-
-# Function untuk check resource status dengan polling
-function Wait-ForResource {
-    param(
-        [string]$ResourceType,
-        [string]$ResourceName,
-        [string]$ResourceGroup,
-        [scriptblock]$ConditionCheck,
-        [int]$MaxWaitSeconds = 300
-    )
-    
-    $startTime = Get-Date
-    $attempt = 1
-    
-    Write-Info "⏳ Waiting for $ResourceType '$ResourceName' to be ready..."
-    
-    while ((Get-Date) -lt $startTime.AddSeconds($MaxWaitSeconds)) {
-        try {
-            $isReady = & $ConditionCheck
-            if ($isReady) {
-                Write-Success "$ResourceType is ready"
-                return $true
-            }
-            
-            $elapsed = (Get-Date) - $startTime
-            Write-Host "  [${elapsed:mm\:ss}] Still waiting... (timeout in $($MaxWaitSeconds - [int]$elapsed.TotalSeconds)s)" -ForegroundColor DarkGray
-            Start-Sleep -Seconds 5
-            $attempt++
-        } catch {
-            $elapsed = (Get-Date) - $startTime
-            Write-Host "  [${elapsed:mm\:ss}] Checking... (timeout in $($MaxWaitSeconds - [int]$elapsed.TotalSeconds)s)" -ForegroundColor DarkGray
-            Start-Sleep -Seconds 5
-        }
-    }
-    
-    Show-Error "Timeout waiting for $ResourceType after $MaxWaitSeconds seconds" `
-        "Resource may be stuck. Check status with:`naz $ResourceType show --name $ResourceName --resource-group $ResourceGroup"
-}
-
-Write-Host "================================================" -ForegroundColor Cyan
-Write-Host " HealthCure - Azure Container Apps Deployment" -ForegroundColor Cyan
-Write-Host "================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "═════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "  HealthCure - Azure Container Apps Deployment" -ForegroundColor Cyan
+Write-Host "═════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
-# Function to check if command exists
-function Test-CommandExists {
-    param([string]$Command)
-    $null = Get-Command $Command -ErrorAction SilentlyContinue
-    return $?
+# Auto-generate ACR name jika tidak disediakan
+if ([string]::IsNullOrEmpty($AcrName)) {
+    $AcrName = "healthcureacr$(Get-Random -Minimum 10000 -Maximum 99999)"
+    Write-Host "ACR name: $AcrName (auto-generated)" -ForegroundColor Yellow
 }
 
-# Function to download file
-function Download-File {
-    param(
-        [string]$Url,
-        [string]$OutFile
-    )
-    
-    Write-Info "Downloading $([System.IO.Path]::GetFileName($OutFile))..."
-    
-    try {
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing
-        Write-Success "Downloaded to: $OutFile"
-        return $true
-    } catch {
-        Show-Error "Failed to download: $($_.Exception.Message)" `
-            "Check your internet connection or try again later"
-    }
+# ============================================================
+# STEP 0: Check Prerequisites
+# ============================================================
+Write-Host "[0/6] Checking prerequisites..." -ForegroundColor Yellow
+
+# Check Docker
+$dockerVersion = docker --version 2>$null
+if (-not $dockerVersion) {
+    Write-Host "❌ ERROR: Docker is not installed or not running" -ForegroundColor Red
+    exit 1
 }
+Write-Host "  ✅ Docker: $dockerVersion" -ForegroundColor Green
 
-# Function to get latest Docker Desktop URL
-function Get-LatestDockerUrl {
-    Write-Info "Fetching latest Docker Desktop version..."
-    return "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe"
+# Check Azure CLI
+$azVersion = az --version 2>$null | Select-Object -First 1
+if (-not $azVersion) {
+    Write-Host "❌ ERROR: Azure CLI is not installed" -ForegroundColor Red
+    exit 1
 }
+Write-Host "  ✅ Azure CLI: OK" -ForegroundColor Green
 
-# Function to get latest Azure CLI URL
-function Get-LatestAzureCliUrl {
-    Write-Info "Fetching latest Azure CLI version..."
-    return "https://aka.ms/installazurecliwindows"
-}
-
-# Function to check dependencies
-function Check-Dependencies {
-    Write-Host "[0/8] Checking dependencies..." -ForegroundColor Yellow
-    Write-Host ""
-    
-    $MissingTools = @()
-    
-    # Check Docker
-    if (Test-CommandExists docker) {
-        Write-Success "Docker found"
-        $DockerVersion = docker --version
-        Write-Host "  $DockerVersion" -ForegroundColor Gray
-    } else {
-        Write-Warn "Docker NOT found"
-        $MissingTools += "Docker"
-    }
-    
-    # Check Azure CLI
-    if (Test-CommandExists az) {
-        Write-Success "Azure CLI found"
-        $AzVersion = az --version 2>$null | Select-Object -First 1
-        Write-Host "  $AzVersion" -ForegroundColor Gray
-    } else {
-        Write-Warn "Azure CLI NOT found"
-        $MissingTools += "Azure CLI"
-    }
-    
-    Write-Host ""
-    
-    if ($MissingTools.Count -gt 0) {
-        Write-Warn "Missing tools: $($MissingTools -join ', ')"
-        Write-Host ""
-        
-        $Download = Read-Host "Download missing tools now? (y/n)"
-        
-        if ($Download -eq 'y' -or $Download -eq 'Y') {
-            Write-Host ""
-            Write-Info "Downloading tools to Downloads folder..."
-            Write-Host ""
-            
-            $DownloadPath = "$env:USERPROFILE\Downloads"
-            
-            if ("Docker" -in $MissingTools) {
-                $DockerUrl = Get-LatestDockerUrl
-                $DockerFile = "$DownloadPath\Docker-Desktop-Installer.exe"
-                Download-File -Url $DockerUrl -OutFile $DockerFile
-                Write-Host "  👉 Double-click to install: $DockerFile" -ForegroundColor Cyan
-            }
-            
-            if ("Azure CLI" -in $MissingTools) {
-                $AzUrl = Get-LatestAzureCliUrl
-                $AzFile = "$DownloadPath\azure-cli-installer.msi"
-                Download-File -Url $AzUrl -OutFile $AzFile
-                Write-Host "  👉 Double-click to install: $AzFile" -ForegroundColor Cyan
-            }
-            
-            Write-Host ""
-            Write-Warn "After installation, restart PowerShell and run this script again."
-            exit 0
-        } else {
-            Show-Error "Cannot continue without required tools" `
-                "Download links:`n  • Docker: https://www.docker.com/products/docker-desktop`n  • Azure CLI: https://aka.ms/installazurecliwindows"
-        }
-    }
-    
-    Write-Success "All dependencies OK!"
-    Write-Host ""
-}
-
-# Run dependency check
-Check-Dependencies
-
-Write-Host "Resource Group : $ResourceGroup"
-Write-Host "Location       : $Location"
-Write-Host "ACR Name       : $AcrName"
-Write-Host ""
-
-# Step 1: Login ke Azure
-Write-Host "[1/8] Login ke Azure..." -ForegroundColor Yellow
+# Check containerapp command
 try {
+    $null = az containerapp --help 2>&1
+    Write-Host "  ✅ ContainerApp Command: OK" -ForegroundColor Green
+} catch {
+    Write-Host "❌ ERROR: 'az containerapp' command not found" -ForegroundColor Red
+    Write-Host "   Tip: Update Azure CLI: az upgrade" -ForegroundColor Yellow
+    exit 1
+}
+Write-Host ""
+
+# ============================================================
+# STEP 1: Azure Login & Provider Registration
+# ============================================================
+Write-Host "[1/6] Azure Login & Provider Registration..." -ForegroundColor Yellow
+
+$account = az account show 2>$null
+if (-not $account) {
+    Write-Host "  Opening browser for Azure login..." -ForegroundColor Cyan
     az login --output none
-    Write-Success "Logged in to Azure"
-} catch {
-    Show-Error "Failed to login to Azure" `
-        "Run: az login`nThen run this script again"
 }
+Write-Host "  ✅ Logged in to Azure" -ForegroundColor Green
 
-# Step 2: Register required providers
-Write-Host "[2/8] Registering Azure providers..." -ForegroundColor Yellow
-try {
-    Write-Info "Registering Microsoft.ContainerRegistry..."
-    az provider register --namespace Microsoft.ContainerRegistry --wait | Out-Null
-    Write-Success "Microsoft.ContainerRegistry registered"
-    
-    Write-Info "Registering Microsoft.App..."
-    az provider register --namespace Microsoft.App --wait | Out-Null
-    Write-Success "Microsoft.App registered"
-    
-    Write-Info "Registering Microsoft.OperationalInsights..."
-    az provider register --namespace Microsoft.OperationalInsights --wait | Out-Null
-    Write-Success "Microsoft.OperationalInsights registered"
-    
-    Write-Info "Registering Microsoft.KubernetesConfiguration..."
-    az provider register --namespace Microsoft.KubernetesConfiguration --wait | Out-Null
-    Write-Success "Microsoft.KubernetesConfiguration registered"
-} catch {
-    Show-Error "Failed to register Azure providers: $($_.Exception.Message)" `
-        "Check your Azure subscription status or try again later"
-}
+Write-Host "  Registering required providers..." -ForegroundColor Cyan
+az provider register --namespace Microsoft.ContainerRegistry --wait --output none
+az provider register --namespace Microsoft.App --wait --output none
+az provider register --namespace Microsoft.OperationalInsights --wait --output none
+Write-Host "  ✅ Providers registered" -ForegroundColor Green
+Write-Host ""
 
-# Step 3: Create Resource Group
-Write-Host "[3/8] Creating Resource Group..." -ForegroundColor Yellow
-Invoke-WithRetry -Description "Create Resource Group '$ResourceGroup'" -MaxRetries 5 {
-    $rgStatus = az group exists --name $ResourceGroup
-    if ($rgStatus -eq "true") {
-        Write-Warn "Resource group '$ResourceGroup' sudah ada"
-    } else {
-        az group create --name $ResourceGroup --location $Location --output none
+# ============================================================
+# STEP 2: Create Resources (Resource Group & ACR)
+# ============================================================
+Write-Host "[2/6] Creating Resources (Resource Group & ACR)..." -ForegroundColor Yellow
+
+# Wait if RG is being deleted
+$rgState = az group show --name $ResourceGroup --query "properties.provisioningState" -o tsv 2>$null
+if ($rgState -eq "Deleting") {
+    Write-Host "  Waiting for resource group to finish deletion..." -ForegroundColor Yellow
+    while ($rgState -eq "Deleting") {
+        Start-Sleep -Seconds 5
+        Write-Host -NoNewline "."
+        $rgState = az group show --name $ResourceGroup --query "properties.provisioningState" -o tsv 2>$null
     }
+    Write-Host " ✅" -ForegroundColor Green
 }
 
-# Step 4: Create Azure Container Registry
-Write-Host "[4/8] Creating Azure Container Registry..." -ForegroundColor Yellow
-Invoke-WithRetry -Description "Create ACR '$AcrName'" -MaxRetries 5 {
-    az acr create --resource-group $ResourceGroup --name $AcrName --sku Basic --location $Location --admin-enabled true --output none
-}
+# Create resource group
+Write-Host "  Creating Resource Group: $ResourceGroup" -ForegroundColor Cyan
+az group create --name $ResourceGroup --location $Location --output none
+Write-Host "  ✅ Resource Group created" -ForegroundColor Green
+
+# Create ACR
+Write-Host "  Creating Container Registry: $AcrName" -ForegroundColor Cyan
+az acr create --resource-group $ResourceGroup --name $AcrName --sku Basic --location $Location --admin-enabled true --output none 2>$null
+Write-Host "  ✅ ACR created" -ForegroundColor Green
 
 $AcrServer = "$AcrName.azurecr.io"
-Write-Success "ACR Server: $AcrServer"
+Write-Host "  ACR Server: $AcrServer" -ForegroundColor Cyan
 
-# Step 5: Login ke ACR
-Write-Host "[5/8] Login ke ACR..." -ForegroundColor Yellow
-Invoke-WithRetry -Description "Login to ACR" -MaxRetries 5 {
-    az acr login --name $AcrName
-}
+# Login to ACR
+Write-Host "  Logging in to ACR..." -ForegroundColor Cyan
+az acr login --name $AcrName --output none
+Write-Host "  ✅ Logged in to ACR" -ForegroundColor Green
+Write-Host ""
 
-# Step 6: Build dan Push Docker Images
-Write-Host "[6/8] Building dan pushing Docker images..." -ForegroundColor Yellow
-try {
-    Write-Info "Building auth-service..."
-    docker build -t "${AcrServer}/healthcure-auth-service:latest" ./auth-service
-    Write-Success "auth-service image built"
-    
-    Write-Info "Pushing auth-service to ACR..."
-    docker push "${AcrServer}/healthcure-auth-service:latest"
-    Write-Success "auth-service pushed to ACR"
-    
-    Write-Info "Building main-service..."
-    docker build -t "${AcrServer}/healthcure-main-service:latest" ./main-service
-    Write-Success "main-service image built"
-    
-    Write-Info "Pushing main-service to ACR..."
-    docker push "${AcrServer}/healthcure-main-service:latest"
-    Write-Success "main-service pushed to ACR"
-    
-    Write-Info "Building frontend..."
-    docker build -t "${AcrServer}/healthcure-frontend:latest" ./frontend
-    Write-Success "frontend image built"
-    
-    Write-Info "Pushing frontend to ACR..."
-    docker push "${AcrServer}/healthcure-frontend:latest"
-    Write-Success "frontend pushed to ACR"
-} catch {
-    Show-Error "Failed to build or push Docker images: $($_.Exception.Message)" `
-        "Check Docker Desktop is running and you have enough disk space"
-}
+# ============================================================
+# STEP 3: Build & Push Docker Images
+# ============================================================
+Write-Host "[3/6] Building & Pushing Docker Images..." -ForegroundColor Yellow
 
-# Step 7: Create Container Apps Environment
-Write-Host "[7/8] Creating Container Apps Environment..." -ForegroundColor Yellow
-try {
-    # Create Log Analytics workspace
-    $LogWorkspaceName = "healthcure-logs-$(Get-Random -Minimum 1000 -Maximum 9999)"
-    Write-Info "Creating Log Analytics workspace: $LogWorkspaceName..."
-    az monitor log-analytics workspace create `
-        --resource-group $ResourceGroup `
-        --workspace-name $LogWorkspaceName `
-        --output none
-    Write-Success "Log Analytics workspace created"
+$services = @(
+    @{Name = "auth-service"; Image = "healthcure-auth-service"},
+    @{Name = "main-service"; Image = "healthcure-main-service"},
+    @{Name = "frontend"; Image = "healthcure-frontend"}
+)
+
+foreach ($service in $services) {
+    $svcName = $service.Name
+    $imgName = $service.Image
+    $fullImage = "${AcrServer}/${imgName}:latest"
     
-    # Get workspace credentials
-    Write-Info "Getting workspace credentials..."
-    $WorkspaceId = az monitor log-analytics workspace show `
-        --resource-group $ResourceGroup `
-        --workspace-name $LogWorkspaceName `
-        --query customerId -o tsv
-    
-    $WorkspaceKey = az monitor log-analytics workspace get-shared-keys `
-        --resource-group $ResourceGroup `
-        --workspace-name $LogWorkspaceName `
-        --query primarySharedKey -o tsv
-    
-    if (-not $WorkspaceId -or -not $WorkspaceKey) {
-        Show-Error "Failed to get Log Analytics workspace credentials" `
-            "The workspace may not be ready yet. Wait a moment and try again"
+    # Verify folder exists
+    if (-not (Test-Path "./$svcName")) {
+        Write-Host "❌ ERROR: Folder '$svcName' not found!" -ForegroundColor Red
+        exit 1
     }
+
+    Write-Host "  Building $svcName..." -ForegroundColor Cyan
+    docker build -t $fullImage "./$svcName" --quiet
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "❌ ERROR: Build failed for $svcName" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    ✅ Build successful" -ForegroundColor Green
     
-    Write-Info "Creating Container Apps environment..."
-    az containerapp env create `
-        --name healthcure-env `
-        --resource-group $ResourceGroup `
-        --location $Location `
-        --logs-workspace-id $WorkspaceId `
-        --logs-workspace-key $WorkspaceKey `
-        --output none
-    Write-Success "Container Apps environment created"
-} catch {
-    Show-Error "Failed to create Container Apps environment: $($_.Exception.Message)" `
-        "Possible causes:`n1. Log Analytics provider not registered`n2. Resource group issue`n3. Azure subscription quota exceeded"
+    Write-Host "  Pushing $svcName to ACR..." -ForegroundColor Cyan
+    docker push $fullImage --quiet
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "❌ ERROR: Push failed for $svcName" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "    ✅ Push successful" -ForegroundColor Green
 }
-
-# Get ACR credentials
-Write-Info "Getting ACR credentials..."
-Invoke-WithRetry -Description "Retrieve ACR credentials" -MaxRetries 5 {
-    $script:AcrUsername = az acr credential show --name $AcrName --query username -o tsv
-    $script:AcrPassword = az acr credential show --name $AcrName --query 'passwords[0].value' -o tsv
-    
-    if (-not $AcrUsername -or -not $AcrPassword) {
-        throw "ACR credentials tidak ditemukan"
-    }
-}
-
-# Step 8: Deploy Container Apps
-Write-Host "[8/8] Deploying Container Apps..." -ForegroundColor Yellow
-
-# Helper function to deploy container app
-function Deploy-ContainerApp {
-    param(
-        [string]$Name,
-        [string]$Image,
-        [string]$TargetPort,
-        [string]$Ingress,
-        [hashtable]$EnvVars,
-        [int]$WaitSeconds = 0
-    )
-    
-    Write-Info "Deploying $Name..."
-    
-    try {
-        # Build env-vars string
-        $EnvVarsStr = ""
-        foreach ($key in $EnvVars.Keys) {
-            $EnvVarsStr += "`"$key=$($EnvVars[$key])`" "
-        }
-        
-        # Check if app exists
-        $AppExists = az containerapp show --name $Name --resource-group $ResourceGroup 2>$null
-        
-        if ($AppExists) {
-            # Update existing
-            if ($EnvVarsStr) {
-                Invoke-Expression "az containerapp update --name $Name --resource-group $ResourceGroup --image $Image --env-vars $EnvVarsStr" | Out-Null
-            } else {
-                az containerapp update --name $Name --resource-group $ResourceGroup --image $Image | Out-Null
-            }
-        } else {
-            # Create new
-            $CreateCmd = "az containerapp create " + `
-                "--name $Name " + `
-                "--resource-group $ResourceGroup " + `
-                "--environment healthcure-env " + `
-                "--image $Image " + `
-                "--target-port $TargetPort " + `
-                "--ingress $Ingress " + `
-                "--cpu 0.25 " + `
-                "--memory 0.5Gi"
-            
-            if ($Name -eq "healthcure-mongodb") {
-                $CreateCmd = $CreateCmd.Replace("--cpu 0.25", "--cpu 0.5").Replace("--memory 0.5Gi", "--memory 1.0Gi")
-            }
-            
-            if ($AcrServer -and $Image -notmatch "mongo") {
-                $CreateCmd += " --registry-server $AcrServer " + `
-                    "--registry-username $AcrUsername " + `
-                    "--registry-password $AcrPassword"
-            }
-            
-            if ($EnvVarsStr) {
-                $CreateCmd += " --env-vars $EnvVarsStr"
-            }
-            
-            Invoke-Expression $CreateCmd | Out-Null
-        }
-        
-        Write-Success "$Name deployed"
-        
-        if ($WaitSeconds -gt 0) {
-            Write-Info "Waiting ${WaitSeconds}s for $Name to be ready..."
-            Start-Sleep -Seconds $WaitSeconds
-        }
-    } catch {
-        Show-Error "Failed to deploy $Name : $($_.Exception.Message)" `
-            "Check Container Apps environment is created and all resources are ready"
-    }
-}
-
-# Deploy in phases
-Write-Host ""
-Write-Info "Phase 1: Deploy MongoDB (with init wait)..."
-Deploy-ContainerApp `
-    -Name "healthcure-mongodb" `
-    -Image "mongo:4.4" `
-    -TargetPort "27017" `
-    -Ingress "internal" `
-    -EnvVars @{} `
-    -WaitSeconds 60
-
-Write-Host ""
-Write-Info "Phase 2: Deploy Auth Service..."
-Deploy-ContainerApp `
-    -Name "healthcure-auth" `
-    -Image "${AcrServer}/healthcure-auth-service:latest" `
-    -TargetPort "3001" `
-    -Ingress "internal" `
-    -EnvVars @{
-        "MONGODB_URI" = "mongodb://healthcure-mongodb:27017/auth_db"
-        "NODE_ENV" = "production"
-        "JWT_SECRET" = "healthcure-jwt-$(Get-Random -Minimum 10000 -Maximum 99999)"
-    } `
-    -WaitSeconds 20
-
-Write-Host ""
-Write-Info "Phase 3: Deploy Main Service..."
-Deploy-ContainerApp `
-    -Name "healthcure-main" `
-    -Image "${AcrServer}/healthcure-main-service:latest" `
-    -TargetPort "3002" `
-    -Ingress "internal" `
-    -EnvVars @{
-        "MONGODB_URI" = "mongodb://healthcure-mongodb:27017/main_db"
-        "NODE_ENV" = "production"
-        "JWT_SECRET" = "healthcure-jwt-$(Get-Random -Minimum 10000 -Maximum 99999)"
-    } `
-    -WaitSeconds 20
-
-Write-Host ""
-Write-Info "Phase 4: Deploy Frontend..."
-Deploy-ContainerApp `
-    -Name "healthcure-frontend" `
-    -Image "${AcrServer}/healthcure-frontend:latest" `
-    -TargetPort "3000" `
-    -Ingress "external" `
-    -EnvVars @{
-        "AUTH_SERVICE_URL" = "http://healthcure-auth:3001"
-        "MAIN_SERVICE_URL" = "http://healthcure-main:3002"
-        "NODE_ENV" = "production"
-    } `
-    -WaitSeconds 15
-
-# Get Frontend URL dengan polling
-Write-Host ""
-Write-Info "Retrieving frontend URL..."
-Wait-ForResource -ResourceType "containerapp" -ResourceName "healthcure-frontend" -ResourceGroup $ResourceGroup -MaxWaitSeconds 180 {
-    $url = az containerapp show --name healthcure-frontend --resource-group $ResourceGroup --query 'properties.configuration.ingress.fqdn' -o tsv 2>/dev/null
-    if ($url -and $url.Length -gt 0) {
-        $script:FrontendUrl = $url
-        return $true
-    }
-    return $false
-}
-
-Write-Host ""
-Write-Host "================================================" -ForegroundColor Green
-Write-Host " ✅ DEPLOYMENT COMPLETE!" -ForegroundColor Green
-Write-Host "================================================" -ForegroundColor Green
-Write-Host ""
-Write-Host "🌐 Frontend URL: https://$FrontendUrl" -ForegroundColor Green
-Write-Host ""
-Write-Host "👤 Admin Credentials:"
-Write-Host "   Email    : admin@healthcure.com"
-Write-Host "   Password : admin123"
-Write-Host ""
-Write-Host "⏱️  Important: Wait 2-3 minutes for containers to fully start"
-Write-Host ""
-Write-Host "📊 Useful Commands:"
-Write-Host "   View logs    : az containerapp logs show --name healthcure-frontend --resource-group $ResourceGroup --tail 50"
-Write-Host "   Check status : az containerapp list --resource-group $ResourceGroup -o table"
-Write-Host "   Delete all   : az group delete --name $ResourceGroup --yes --no-wait"
-Write-Host ""
-Write-Host "================================================" -ForegroundColor Green
-
-
-# Function to download file
-function Download-File {
-    param(
-        [string]$Url,
-        [string]$OutFile
-    )
-    
-    Write-Host "  Downloading $([System.IO.Path]::GetFileName($OutFile))..." -ForegroundColor Cyan
-    
-    try {
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing
-        Write-Host "  ✓ Downloaded to: $OutFile" -ForegroundColor Green
-        return $true
-    } catch {
-        Write-Host "  ✗ Failed to download: $_" -ForegroundColor Red
-        return $false
-    }
-}
-
-# Function to get latest Docker Desktop URL
-function Get-LatestDockerUrl {
-    Write-Host "  Fetching latest Docker Desktop version..." -ForegroundColor Cyan
-    try {
-        # Get latest release info from Docker Hub
-        $Response = Invoke-WebRequest -Uri "https://docs.docker.com/desktop/release-notes/" -UseBasicParsing -ErrorAction SilentlyContinue
-        Write-Host "  ✓ Latest Docker: https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe" -ForegroundColor Green
-        return "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe"
-    } catch {
-        return "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe"
-    }
-}
-
-# Function to get latest Azure CLI URL
-function Get-LatestAzureCliUrl {
-    Write-Host "  Fetching latest Azure CLI version..." -ForegroundColor Cyan
-    try {
-        $Releases = Invoke-RestMethod -Uri "https://api.github.com/repos/Azure/azure-cli/releases/latest" -UseBasicParsing -ErrorAction SilentlyContinue
-        $LatestVersion = $Releases.tag_name
-        $DownloadUrl = "https://aka.ms/installazurecliwindows"
-        Write-Host "  ✓ Latest Azure CLI: $LatestVersion" -ForegroundColor Green
-        return $DownloadUrl
-    } catch {
-        return "https://aka.ms/installazurecliwindows"
-    }
-}
-
-# Function to check dependencies
-function Check-Dependencies {
-    Write-Host "[0/8] Checking dependencies..." -ForegroundColor Yellow
-    Write-Host ""
-    
-    $MissingTools = @()
-    
-    # Check Docker
-    if (Test-CommandExists docker) {
-        Write-Host "✓ Docker found" -ForegroundColor Green
-        $DockerVersion = docker --version
-        Write-Host "  $DockerVersion" -ForegroundColor Gray
-    } else {
-        Write-Host "✗ Docker NOT found" -ForegroundColor Red
-        $MissingTools += "Docker"
-    }
-    
-    # Check Azure CLI
-    if (Test-CommandExists az) {
-        Write-Host "✓ Azure CLI found" -ForegroundColor Green
-        $AzVersion = az --version | Select-Object -First 1
-        Write-Host "  $AzVersion" -ForegroundColor Gray
-    } else {
-        Write-Host "✗ Azure CLI NOT found" -ForegroundColor Red
-        $MissingTools += "Azure CLI"
-    }
-    
-    Write-Host ""
-    
-    if ($MissingTools.Count -gt 0) {
-        Write-Host "Missing tools: $($MissingTools -join ', ')" -ForegroundColor Yellow
-        Write-Host ""
-        
-        $Download = Read-Host "Download missing tools now? (y/n)"
-        
-        if ($Download -eq 'y' -or $Download -eq 'Y') {
-            Write-Host ""
-            Write-Host "Downloading tools to Downloads folder..." -ForegroundColor Yellow
-            Write-Host ""
-            
-            $DownloadPath = "$env:USERPROFILE\Downloads"
-            
-            if ("Docker" -in $MissingTools) {
-                $DockerUrl = Get-LatestDockerUrl
-                $DockerFile = "$DownloadPath\Docker-Desktop-Installer.exe"
-                if (Download-File -Url $DockerUrl -OutFile $DockerFile) {
-                    Write-Host "  👉 Double-click to install: $DockerFile" -ForegroundColor Cyan
-                }
-            }
-            
-            if ("Azure CLI" -in $MissingTools) {
-                $AzUrl = Get-LatestAzureCliUrl
-                $AzFile = "$DownloadPath\azure-cli-installer.msi"
-                if (Download-File -Url $AzUrl -OutFile $AzFile) {
-                    Write-Host "  👉 Double-click to install: $AzFile" -ForegroundColor Cyan
-                }
-            }
-            
-            Write-Host ""
-            Write-Host "After installation, restart PowerShell and run this script again." -ForegroundColor Yellow
-            exit 0
-        } else {
-            Write-Host "Cannot continue without required tools." -ForegroundColor Red
-            Write-Host ""
-            Write-Host "Download links:" -ForegroundColor Yellow
-            Write-Host "  • Docker Desktop: https://www.docker.com/products/docker-desktop" -ForegroundColor Cyan
-            Write-Host "  • Azure CLI:      https://aka.ms/installazurecliwindows" -ForegroundColor Cyan
-            exit 1
-        }
-    }
-    
-    Write-Host "All dependencies OK! ✓" -ForegroundColor Green
-    Write-Host ""
-}
-
-# Run dependency check
-Check-Dependencies
-
-Write-Host "Resource Group : $ResourceGroup"
-Write-Host "Location       : $Location"
-Write-Host "ACR Name       : $AcrName"
+Write-Host "  ✅ All images built and pushed!" -ForegroundColor Green
 Write-Host ""
 
-# Step 1: Login ke Azure
-Write-Host "[1/8] Login ke Azure..." -ForegroundColor Yellow
-az login
+# ============================================================
+# STEP 4: Create Container Apps Environment
+# ============================================================
+Write-Host "[4/6] Creating Container Apps Environment..." -ForegroundColor Yellow
+Write-Host "  Creating environment: healthcure-env" -ForegroundColor Cyan
+az containerapp env create --name healthcure-env --resource-group $ResourceGroup --location $Location --output none 2>$null
+Write-Host "  ✅ Environment created" -ForegroundColor Green
+Write-Host ""
 
-# Step 2: Register required providers
-Write-Host "[2/8] Registering Azure providers..." -ForegroundColor Yellow
-az provider register --namespace Microsoft.ContainerRegistry --wait
-az provider register --namespace Microsoft.App --wait
-az provider register --namespace Microsoft.OperationalInsights --wait
-az provider register --namespace Microsoft.KubernetesConfiguration --wait
-
-# Step 3: Create Resource Group
-Write-Host "[3/8] Creating Resource Group..." -ForegroundColor Yellow
-az group create --name $ResourceGroup --location $Location
-
-# Step 4: Create Azure Container Registry
-Write-Host "[4/8] Creating Azure Container Registry..." -ForegroundColor Yellow
-az acr create --resource-group $ResourceGroup --name $AcrName --sku Basic --location $Location --admin-enabled true
-
-$AcrServer = "$AcrName.azurecr.io"
-Write-Host "ACR Server: $AcrServer" -ForegroundColor Green
-
-# Step 5: Login ke ACR
-Write-Host "[5/8] Login ke ACR..." -ForegroundColor Yellow
-az acr login --name $AcrName
-
-# Step 6: Build dan Push Docker Images
-Write-Host "[6/8] Building dan pushing Docker images..." -ForegroundColor Yellow
-
-Write-Host "Building auth-service..." -ForegroundColor Cyan
-docker build -t "${AcrServer}/healthcure-auth-service:latest" ./auth-service
-docker push "${AcrServer}/healthcure-auth-service:latest"
-
-Write-Host "Building main-service..." -ForegroundColor Cyan
-docker build -t "${AcrServer}/healthcure-main-service:latest" ./main-service
-docker push "${AcrServer}/healthcure-main-service:latest"
-
-Write-Host "Building frontend..." -ForegroundColor Cyan
-docker build -t "${AcrServer}/healthcure-frontend:latest" ./frontend
-docker push "${AcrServer}/healthcure-frontend:latest"
-
-# Step 7: Create Container Apps Environment
-Write-Host "[7/8] Creating Container Apps Environment..." -ForegroundColor Yellow
-
-# Create a temp Log Analytics workspace for Container Apps
-$LogWorkspaceName = "healthcure-logs-$(Get-Random -Minimum 1000 -Maximum 9999)"
-Write-Host "Creating Log Analytics workspace: $LogWorkspaceName..." -ForegroundColor Cyan
-az monitor log-analytics workspace create `
-    --resource-group $ResourceGroup `
-    --workspace-name $LogWorkspaceName `
-    -o none
-
-$WorkspaceId = az monitor log-analytics workspace show `
-    --resource-group $ResourceGroup `
-    --workspace-name $LogWorkspaceName `
-    --query customerId -o tsv
-
-$WorkspaceKey = az monitor log-analytics workspace get-shared-keys `
-    --resource-group $ResourceGroup `
-    --workspace-name $LogWorkspaceName `
-    --query primarySharedKey -o tsv
-
-az containerapp env create `
-    --name healthcure-env `
-    --resource-group $ResourceGroup `
-    --location $Location `
-    --logs-workspace-id $WorkspaceId `
-    --logs-workspace-key $WorkspaceKey
+# ============================================================
+# STEP 5: Deploy Services
+# ============================================================
+Write-Host "[5/6] Deploying Services..." -ForegroundColor Yellow
 
 # Get ACR credentials
 $AcrUsername = az acr credential show --name $AcrName --query username -o tsv
 $AcrPassword = az acr credential show --name $AcrName --query 'passwords[0].value' -o tsv
+$JwtSecret = "healthcure-jwt-$(Get-Random -Minimum 100000 -Maximum 999999)"
 
-# Step 8: Deploy Container Apps
-Write-Host "[8/8] Deploying Container Apps..." -ForegroundColor Yellow
+# Deploy MongoDB
+Write-Host "  Deploying MongoDB..." -ForegroundColor Cyan
+az containerapp create `
+  --name healthcure-mongodb `
+  --resource-group $ResourceGroup `
+  --environment healthcure-env `
+  --image mongo:5.0 `
+  --ingress internal `
+  --target-port 27017 `
+  --min-replicas 1 --max-replicas 1 `
+  --output none 2>$null
+Write-Host "    ✅ MongoDB deployed" -ForegroundColor Green
+Write-Host "    ⏳ Waiting for MongoDB to start (15 seconds)..." -ForegroundColor Gray
+Start-Sleep -Seconds 15
 
-# Helper function to create or update container app
-function Deploy-ContainerApp {
-    param(
-        [string]$Name,
-        [string]$Image,
-        [string]$TargetPort,
-        [string]$Ingress,
-        [hashtable]$EnvVars,
-        [int]$WaitSeconds = 0
-    )
-    
-    Write-Host "Deploying $Name..." -ForegroundColor Cyan
-    
-    # Build env-vars parameter
-    $EnvVarsArray = @()
-    foreach ($key in $EnvVars.Keys) {
-        $EnvVarsArray += "$key=$($EnvVars[$key])"
-    }
-    
-    # Try to update first, if not exists then create
-    $UpdateCmd = @(
-        "az", "containerapp", "update",
-        "--name", $Name,
-        "--resource-group", $ResourceGroup,
-        "--image", $Image
-    )
-    
-    if ($EnvVarsArray.Count -gt 0) {
-        $UpdateCmd += "--env-vars"
-        $UpdateCmd += $EnvVarsArray
-    }
-    
-    $UpdateResult = & $UpdateCmd 2>&1
-    
-    if ($LASTEXITCODE -ne 0) {
-        # Create new if update failed
-        $CreateCmd = @(
-            "az", "containerapp", "create",
-            "--name", $Name,
-            "--resource-group", $ResourceGroup,
-            "--environment", "healthcure-env",
-            "--image", $Image,
-            "--target-port", $TargetPort,
-            "--ingress", $Ingress,
-            "--cpu", "0.25",
-            "--memory", "0.5Gi"
-        )
-        
-        if ($Name -eq "healthcure-mongodb") {
-            $CreateCmd[-6] = "0.5"
-            $CreateCmd[-4] = "1.0Gi"
-        }
-        
-        if ($AcrServer -and $Image -notmatch "mongo") {
-            $CreateCmd += "--registry-server"
-            $CreateCmd += $AcrServer
-            $CreateCmd += "--registry-username"
-            $CreateCmd += $AcrUsername
-            $CreateCmd += "--registry-password"
-            $CreateCmd += $AcrPassword
-        }
-        
-        if ($EnvVarsArray.Count -gt 0) {
-            $CreateCmd += "--env-vars"
-            $CreateCmd += $EnvVarsArray
-        }
-        
-        & $CreateCmd | Out-Null
-    }
-    
-    if ($WaitSeconds -gt 0) {
-        Write-Host "  Waiting ${WaitSeconds}s for $Name to be ready..." -ForegroundColor Gray
-        Start-Sleep -Seconds $WaitSeconds
-    }
+# Deploy Auth Service
+Write-Host "  Deploying Auth Service..." -ForegroundColor Cyan
+az containerapp create `
+  --name healthcure-auth `
+  --resource-group $ResourceGroup `
+  --environment healthcure-env `
+  --image "${AcrServer}/healthcure-auth-service:latest" `
+  --registry-server $AcrServer `
+  --registry-username $AcrUsername `
+  --registry-password $AcrPassword `
+  --ingress internal `
+  --target-port 3001 `
+  --min-replicas 1 --max-replicas 3 `
+  --env-vars "MONGODB_URI=mongodb://healthcure-mongodb.internal.healthcure-env:27017/auth_db" "NODE_ENV=production" "JWT_SECRET=$JwtSecret" `
+  --output none 2>$null
+Write-Host "    ✅ Auth Service deployed" -ForegroundColor Green
+
+# Deploy Main Service
+Write-Host "  Deploying Main Service..." -ForegroundColor Cyan
+az containerapp create `
+  --name healthcure-main `
+  --resource-group $ResourceGroup `
+  --environment healthcure-env `
+  --image "${AcrServer}/healthcure-main-service:latest" `
+  --registry-server $AcrServer `
+  --registry-username $AcrUsername `
+  --registry-password $AcrPassword `
+  --ingress internal `
+  --target-port 3002 `
+  --min-replicas 1 --max-replicas 3 `
+  --env-vars "MONGODB_URI=mongodb://healthcure-mongodb.internal.healthcure-env:27017/main_db" "NODE_ENV=production" "JWT_SECRET=$JwtSecret" `
+  --output none 2>$null
+Write-Host "    ✅ Main Service deployed" -ForegroundColor Green
+
+# Deploy Frontend
+Write-Host "  Deploying Frontend..." -ForegroundColor Cyan
+az containerapp create `
+  --name healthcure-frontend `
+  --resource-group $ResourceGroup `
+  --environment healthcure-env `
+  --image "${AcrServer}/healthcure-frontend:latest" `
+  --registry-server $AcrServer `
+  --registry-username $AcrUsername `
+  --registry-password $AcrPassword `
+  --ingress external `
+  --target-port 3000 `
+  --min-replicas 1 --max-replicas 3 `
+  --env-vars "AUTH_SERVICE_URL=http://healthcure-auth:3001" "MAIN_SERVICE_URL=http://healthcure-main:3002" "NODE_ENV=production" `
+  --output none 2>$null
+Write-Host "    ✅ Frontend deployed" -ForegroundColor Green
+Write-Host ""
+
+# ============================================================
+# STEP 6: Verification & Information
+# ============================================================
+Write-Host "[6/6] Verifying Deployment..." -ForegroundColor Yellow
+Write-Host "  Getting Frontend URL..." -ForegroundColor Cyan
+$FrontendUrl = az containerapp show --name healthcure-frontend --resource-group $ResourceGroup --query properties.configuration.ingress.fqdn -o tsv 2>$null
+
+if ($FrontendUrl) {
+    Write-Host "  ✅ Frontend URL ready" -ForegroundColor Green
+} else {
+    Write-Host "  ⚠️  URL not immediately available (still initializing)" -ForegroundColor Yellow
 }
 
-# Deploy MongoDB (wait longest - needs time to initialize)
 Write-Host ""
-Write-Host "Phase 1: Deploy MongoDB (with init wait)..." -ForegroundColor Magenta
-Deploy-ContainerApp `
-    -Name "healthcure-mongodb" `
-    -Image "mongo:4.4" `
-    -TargetPort "27017" `
-    -Ingress "internal" `
-    -EnvVars @{} `
-    -WaitSeconds 60
+Write-Host "═════════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "  ✅ DEPLOYMENT COMPLETE!" -ForegroundColor Green
+Write-Host "═════════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host ""
 
-# Deploy Auth Service (depends on MongoDB)
-Write-Host ""
-Write-Host "Phase 2: Deploy Auth Service..." -ForegroundColor Magenta
-Deploy-ContainerApp `
-    -Name "healthcure-auth" `
-    -Image "${AcrServer}/healthcure-auth-service:latest" `
-    -TargetPort "3001" `
-    -Ingress "internal" `
-    -EnvVars @{
-        "MONGODB_URI" = "mongodb://healthcure-mongodb:27017/auth_db"
-        "NODE_ENV" = "production"
-        "JWT_SECRET" = "healthcure-jwt-$(Get-Random -Minimum 10000 -Maximum 99999)"
-    } `
-    -WaitSeconds 20
+if ($FrontendUrl) {
+    Write-Host "🌐 Access your app:" -ForegroundColor Cyan
+    Write-Host "   https://$FrontendUrl" -ForegroundColor Cyan
+    Write-Host ""
+}
 
-# Deploy Main Service (depends on MongoDB)
+Write-Host "📝 Login Credentials:" -ForegroundColor Cyan
+Write-Host "   Email: admin@healthcure.com" -ForegroundColor Cyan
+Write-Host "   Password: admin123" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Phase 3: Deploy Main Service..." -ForegroundColor Magenta
-Deploy-ContainerApp `
-    -Name "healthcure-main" `
-    -Image "${AcrServer}/healthcure-main-service:latest" `
-    -TargetPort "3002" `
-    -Ingress "internal" `
-    -EnvVars @{
-        "MONGODB_URI" = "mongodb://healthcure-mongodb:27017/main_db"
-        "NODE_ENV" = "production"
-        "JWT_SECRET" = "healthcure-jwt-$(Get-Random -Minimum 10000 -Maximum 99999)"
-    } `
-    -WaitSeconds 20
 
-# Deploy Frontend (depends on Auth & Main)
+Write-Host "⏳ Important: Wait 2-3 MINUTES before first login!" -ForegroundColor Yellow
+Write-Host "   Services need time to fully initialize and connect to database." -ForegroundColor Gray
 Write-Host ""
-Write-Host "Phase 4: Deploy Frontend..." -ForegroundColor Magenta
-Deploy-ContainerApp `
-    -Name "healthcure-frontend" `
-    -Image "${AcrServer}/healthcure-frontend:latest" `
-    -TargetPort "3000" `
-    -Ingress "external" `
-    -EnvVars @{
-        "AUTH_SERVICE_URL" = "http://healthcure-auth:3001"
-        "MAIN_SERVICE_URL" = "http://healthcure-main:3002"
-        "NODE_ENV" = "production"
-    } `
-    -WaitSeconds 15
 
-# Get Frontend URL
-Start-Sleep -Seconds 10
-$FrontendUrl = az containerapp show --name healthcure-frontend --resource-group $ResourceGroup --query 'properties.configuration.ingress.fqdn' -o tsv
+Write-Host "🔍 Check Service Status:" -ForegroundColor Cyan
+Write-Host "   az containerapp list --resource-group $ResourceGroup -o table" -ForegroundColor Gray
+Write-Host ""
 
+Write-Host "📊 View Logs:" -ForegroundColor Cyan
+Write-Host "   Auth Service:" -ForegroundColor Gray
+Write-Host "   az containerapp logs show --name healthcure-auth --resource-group $ResourceGroup --tail 50" -ForegroundColor Gray
 Write-Host ""
-Write-Host "================================================" -ForegroundColor Green
-Write-Host " DEPLOYMENT COMPLETE!" -ForegroundColor Green
-Write-Host "================================================" -ForegroundColor Green
+Write-Host "   Main Service:" -ForegroundColor Gray
+Write-Host "   az containerapp logs show --name healthcure-main --resource-group $ResourceGroup --tail 50" -ForegroundColor Gray
 Write-Host ""
-Write-Host "Frontend URL: https://$FrontendUrl" -ForegroundColor Cyan
+Write-Host "   Frontend:" -ForegroundColor Gray
+Write-Host "   az containerapp logs show --name healthcure-frontend --resource-group $ResourceGroup --tail 50" -ForegroundColor Gray
 Write-Host ""
-Write-Host "Admin Credentials:"
-Write-Host "  Email    : admin@healthcure.com"
-Write-Host "  Password : admin123"
-Write-Host ""
-Write-Host "Useful Commands:"
-Write-Host "  View logs    : az containerapp logs show --name healthcure-frontend --resource-group $ResourceGroup"
-Write-Host "  Delete all   : az group delete --name $ResourceGroup --yes"
+
+Write-Host "💡 If login times out: Services are still initializing, wait longer or check logs above" -ForegroundColor Yellow
 Write-Host ""

@@ -5,10 +5,37 @@ require('dotenv').config();
 
 const mongoUri = process.env.MONGODB_URI || 'mongodb://mongodb-auth:27017/auth_db';
 
+// Retry connection function
+const connectWithRetry = async (retries = 15, delay = 2000) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      console.log(`[${i + 1}/${retries}] Connecting to MongoDB...`);
+      await mongoose.connect(mongoUri, {
+        serverSelectionTimeoutMS: 8000,
+        socketTimeoutMS: 45000,
+        connectTimeoutMS: 8000,
+      });
+      console.log('✅ Connected to MongoDB');
+      return true;
+    } catch (err) {
+      console.error(`❌ Attempt ${i + 1} failed: ${err.message}`);
+      if (i < retries - 1) {
+        console.log(`⏳ Retry in ${delay / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  return false;
+};
+
 async function createAdmin() {
   try {
-    await mongoose.connect(mongoUri);
-    console.log('✅ Connected to MongoDB');
+    const connected = await connectWithRetry();
+    
+    if (!connected) {
+      console.error('❌ Failed to connect to MongoDB after multiple retries');
+      process.exit(1);
+    }
 
     const User = require('./src/models/User');
 

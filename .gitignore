@@ -20,3 +20,7 @@ Thumbs.db
 # Build artifacts
 dist/
 build/
+
+# VM Configuration (sensitive data)
+deploy/vm-config.env
+deploy/vm-setup.sh
