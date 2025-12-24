@@ -56,15 +56,12 @@ if (-not $bashPath) {
 Write-Host "Bash found: $bashPath" -ForegroundColor Green
 Write-Host ""
 
-# Convert Windows path to WSL path if needed
-$scriptPath = "$PSScriptRoot\deploy.sh"
-$wslScriptPath = ($scriptPath -replace "\\", "/" -replace "C:", "/mnt/c")
-
 Write-Host "Launching deployment script..." -ForegroundColor Cyan
 Write-Host ""
 
-# Run bash script
-bash "$scriptPath"
+# Run bash script with proper path handling
+$scriptPath = Join-Path $PSScriptRoot "deploy.sh"
+& bash -c "bash '$($scriptPath -replace '\\', '/')'"
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host ""
