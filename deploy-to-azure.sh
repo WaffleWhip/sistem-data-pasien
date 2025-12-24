@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Configuration
-APP_NAME="healthcure-app-$RANDOM"
-RG_NAME="healthcure-rg"
-LOCATION="eastus" # Change this if needed (e.g., eastus, westeurope)
-ACR_NAME="healthcureacr$RANDOM"
-PLAN_NAME="healthcure-plan"
+APP_NAME="app-pasien-$RANDOM"
+RG_NAME="rg-pasien-project"
+LOCATION="eastus" 
+ACR_NAME="regpasien$RANDOM"
+PLAN_NAME="plan-pasien"
 
 # Colors
 GREEN='\033[0;32m'
@@ -44,13 +44,13 @@ echo "ACR Server: $ACR_LOGIN_SERVER"
 echo -e "${GREEN}Building Images in ACR...${NC}"
 
 echo "Building Auth Service..."
-az acr build --registry $ACR_NAME --image healthcure-auth-service:latest ./auth-service
+az acr build --registry $ACR_NAME --image pasien-auth-service:latest ./auth-service
 
 echo "Building Main Service..."
-az acr build --registry $ACR_NAME --image healthcure-main-service:latest ./main-service
+az acr build --registry $ACR_NAME --image pasien-main-service:latest ./main-service
 
 echo "Building Frontend..."
-az acr build --registry $ACR_NAME --image healthcure-frontend:latest ./frontend
+az acr build --registry $ACR_NAME --image pasien-frontend:latest ./frontend
 
 # 4. Create App Service Plan
 echo -e "${GREEN}Creating App Service Plan...${NC}"

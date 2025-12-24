@@ -10,7 +10,7 @@ services:
     volumes:
       - ${WEBAPP_STORAGE_HOME}/site/wwwroot/auth_data:/data/db
     networks:
-      - healthcure-network
+      - pasien-network
 
   # MongoDB for Main Service (Project Database)
   mongodb-main:
@@ -21,11 +21,11 @@ services:
     volumes:
       - ${WEBAPP_STORAGE_HOME}/site/wwwroot/main_data:/data/db
     networks:
-      - healthcure-network
+      - pasien-network
 
   # Auth Service
   auth-service:
-    image: ${ACR_NAME}.azurecr.io/healthcure-auth-service:latest
+    image: ${ACR_NAME}.azurecr.io/pasien-auth-service:latest
     restart: always
     environment:
       PORT: 3001
@@ -36,12 +36,12 @@ services:
     depends_on:
       - mongodb-auth
     networks:
-      - healthcure-network
+      - pasien-network
     command: sh -c "node create-admin.js && node src/index.js"
 
   # Main Service
   main-service:
-    image: ${ACR_NAME}.azurecr.io/healthcure-main-service:latest
+    image: ${ACR_NAME}.azurecr.io/pasien-main-service:latest
     restart: always
     environment:
       PORT: 3002
@@ -51,11 +51,11 @@ services:
     depends_on:
       - mongodb-main
     networks:
-      - healthcure-network
+      - pasien-network
 
   # Frontend Gateway Service
   frontend:
-    image: ${ACR_NAME}.azurecr.io/healthcure-frontend:latest
+    image: ${ACR_NAME}.azurecr.io/pasien-frontend:latest
     restart: always
     ports:
       - "3000:3000"
@@ -68,8 +68,8 @@ services:
       - auth-service
       - main-service
     networks:
-      - healthcure-network
+      - pasien-network
 
 networks:
-  healthcure-network:
+  pasien-network:
     driver: bridge
