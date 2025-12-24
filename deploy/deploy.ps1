@@ -59,9 +59,17 @@ Write-Host ""
 Write-Host "Launching deployment script..." -ForegroundColor Cyan
 Write-Host ""
 
-# Run bash script with proper path handling
+# Use Git Bash or WSL - they handle paths better
 $scriptPath = Join-Path $PSScriptRoot "deploy.sh"
-& bash -c "bash '$($scriptPath -replace '\\', '/')'"
+
+# Try to run with Git Bash first (most reliable)
+$gitBash = "C:\Program Files\Git\bin\bash.exe"
+if (Test-Path $gitBash) {
+    & $gitBash -c "cd '$PSScriptRoot' && bash deploy.sh"
+} else {
+    # Fallback to system bash
+    & bash -c "cd '$PSScriptRoot' && bash deploy.sh"
+}
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host ""
