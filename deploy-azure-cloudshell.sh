@@ -1,14 +1,15 @@
 #!/bin/bash
 
 # HealthCure Azure Deployment Script for Cloud Shell
-# Build images in ACR and deploy to Container Apps
+# Automatically generates all resource names and deploys
 
 set -e
 
 # Configuration
 RESOURCE_GROUP="healthcure-rg"
 REGION="eastasia"
-ACR_NAME="healthcureacr46519"
+TIMESTAMP=$(date +%s | tail -c 8)
+ACR_NAME="healthcure${TIMESTAMP}"
 CONTAINER_ENV="healthcure-env"
 ACR_SERVER="${ACR_NAME}.azurecr.io"
 
@@ -17,40 +18,62 @@ echo "HealthCure - Azure Deployment (Cloud Shell)"
 echo "================================================"
 echo "Region: $REGION"
 echo "Resource Group: $RESOURCE_GROUP"
-echo "ACR: $ACR_NAME"
+echo "ACR Name: $ACR_NAME"
 echo "ACR Server: $ACR_SERVER"
 echo ""
 
-# Step 1: Build Frontend in ACR
-echo "[1/4] Building Frontend image in ACR..."
+# Step 0: Clean up old resource group if exists
+echo "[0/5] Checking existing resources..."
+if az group exists --name $RESOURCE_GROUP | grep -q true; then
+  echo "Resource group exists, proceeding..."
+else
+  echo "Creating new resource group..."
+  az group create --name $RESOURCE_GROUP --location $REGION
+fi
+
+# Step 1: Create ACR
+echo "[1/5] Creating Azure Container Registry..."
+az acr create \
+  --resource-group $RESOURCE_GROUP \
+  --name $ACR_NAME \
+  --sku Basic \
+  --location $REGION
+
+echo "ACR created: $ACR_SERVER"
+
+# Step 2: Build Frontend in ACR
+echo "[2/5] Building Frontend image in ACR..."
 az acr build \
   --registry $ACR_NAME \
   --image healthcure-frontend:latest \
   ./frontend
 
-# Step 2: Build Auth Service in ACR
-echo "[2/4] Building Auth Service image in ACR..."
+# Step 3: Build Auth Service in ACR
+echo "[3/5] Building Auth Service image in ACR..."
 az acr build \
   --registry $ACR_NAME \
   --image healthcure-auth-service:latest \
   ./auth-service
 
-# Step 3: Build Main Service in ACR
-echo "[3/4] Building Main Service image in ACR..."
+# Step 4: Build Main Service in ACR
+echo "[4/5] Building Main Service image in ACR..."
 az acr build \
   --registry $ACR_NAME \
   --image healthcure-main-service:latest \
   ./main-service
 
-# Step 4: Create Container Apps Environment
-echo "[4/4] Creating Container Apps Environment..."
+# Step 5: Create Container Apps Environment
+echo "[5/5] Creating Container Apps Environment..."
 az containerapp env create \
   --name $CONTAINER_ENV \
   --resource-group $RESOURCE_GROUP \
   --location $REGION \
   2>/dev/null || echo "Environment already exists"
 
+sleep 10
+
 # Get ACR credentials
+echo "Getting ACR credentials..."
 ACR_USERNAME=$(az acr credential show --name $ACR_NAME --query username -o tsv)
 ACR_PASSWORD=$(az acr credential show --name $ACR_NAME --query 'passwords[0].value' -o tsv)
 
@@ -105,7 +128,11 @@ az containerapp create \
   --resource-group $RESOURCE_GROUP \
   --image ${ACR_SERVER}/healthcure-main-service:latest
 
+sleep 5
+
 # Display results
+FRONTEND_URL=$(az containerapp show --name healthcure-frontend --resource-group $RESOURCE_GROUP --query 'properties.configuration.ingress.fqdn' -o tsv 2>/dev/null || echo "Generating...")
+
 echo ""
 echo "================================================"
 echo "Deployment Complete!"
@@ -115,17 +142,22 @@ echo "Resource Group: $RESOURCE_GROUP"
 echo "Region: $REGION"
 echo "Container Registry: $ACR_SERVER"
 echo ""
-echo "Container Apps:"
+echo "Container Apps Deployed:"
 echo "- Frontend: healthcure-frontend"
 echo "- Auth Service: healthcure-auth"
 echo "- Main Service: healthcure-main"
 echo ""
-echo "Get Frontend URL:"
-echo "az containerapp show --name healthcure-frontend --resource-group $RESOURCE_GROUP --query 'properties.configuration.ingress.fqdn' -o tsv"
+echo "Frontend URL:"
+echo "https://${FRONTEND_URL}"
 echo ""
-echo "View Logs:"
+echo "Admin Credentials:"
+echo "Email: admin@healthcure.com"
+echo "Password: admin123"
+echo ""
+echo "Useful Commands:"
+echo "az containerapp show --name healthcure-frontend --resource-group $RESOURCE_GROUP --query 'properties.configuration.ingress.fqdn' -o tsv"
 echo "az containerapp logs show --name healthcure-frontend --resource-group $RESOURCE_GROUP --tail 50"
 echo ""
-echo "IMPORTANT: MongoDB is still running locally in Proxmox (192.168.1.167)"
-echo "Services in Azure are configured to connect to local MongoDB."
+echo "IMPORTANT: MongoDB is running locally in Proxmox (192.168.1.167)"
+echo "Services in Azure connect to local MongoDB via internal networking."
 echo ""
