@@ -2,7 +2,7 @@
 
 Sistem manajemen data pasien berbasis web dengan arsitektur microservices. Memungkinkan admin (petugas klinik) mengelola data pasien dan dokter, serta user (pasien) melihat dan memperbarui data pribadi mereka.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Docker & Docker Compose
@@ -15,14 +15,14 @@ docker-compose up -d
 ```
 
 Tunggu ~30 detik hingga semua services siap, lalu akses:
-- **Frontend**: http://localhost:3000
-- **Default Admin**: admin@healthcure.com / admin123
+- Frontend: http://localhost:3000
+- Default Admin: admin@healthcure.com / admin123
 
 ---
 
-## 📋 Fitur & Cara Penggunaan
+## Fitur & Cara Penggunaan
 
-### 🔐 Login/Register
+### Login/Register
 
 1. Buka http://localhost:3000
 2. Klik "Login" atau "Daftar"
@@ -31,52 +31,52 @@ Tunggu ~30 detik hingga semua services siap, lalu akses:
 
 ---
 
-### 👨‍⚕️ ADMIN - Kelola Data Pasien
+### ADMIN - Kelola Data Pasien
 
-**Akses Menu "Data Pasien"**
+Akses Menu "Data Pasien"
 
-- **Lihat Pasien**: Tabel semua pasien dengan pencarian
-- **Tambah Pasien**: Klik tombol "Tambah Pasien" dan isi form lengkap
+- Lihat Pasien: Tabel semua pasien dengan pencarian
+- Tambah Pasien: Klik tombol "Tambah Pasien" dan isi form lengkap
   - Nama, Email, No HP
   - Tanggal Lahir, Jenis Kelamin
   - Alamat, Golongan Darah, Alergi, Riwayat Medis
-- **Edit Pasien**: Klik nama/tombol "Edit" dan ubah data
-- **Hapus Pasien**: Klik "Hapus" dan konfirmasi
+- Edit Pasien: Klik nama/tombol "Edit" dan ubah data
+- Hapus Pasien: Klik "Hapus" dan konfirmasi
 
 ---
 
-### 👨‍⚕️ ADMIN - Kelola Data Dokter
+### ADMIN - Kelola Data Dokter
 
-**Akses Menu "Data Dokter"**
+Akses Menu "Data Dokter"
 
-- **Lihat Dokter**: Tabel semua dokter
-- **Tambah Dokter**: Isi: Nama, NIP, Spesialisasi, No HP, Email, Jadwal, Ruangan
-- **Edit/Hapus Dokter**: Sama seperti pasien
+- Lihat Dokter: Tabel semua dokter
+- Tambah Dokter: Isi: Nama, NIP, Spesialisasi, No HP, Email, Jadwal, Ruangan
+- Edit/Hapus Dokter: Sama seperti pasien
 
 ---
 
-### 📋 ADMIN - Buat Rujukan
+### ADMIN - Buat Rujukan
 
-**Akses Menu "Rujukan Pasien" → "Buat Rujukan Baru"**
+Akses Menu "Rujukan Pasien" > "Buat Rujukan Baru"
 
-**Step 1: Pilih Pasien**
+Step 1: Pilih Pasien
 - Cari pasien dengan nama/email/no HP
 - Klik pasien yang dipilih
 
-**Step 2: Cek Data Pasien**
-- Jika data lengkap → Lanjut ke Step 3
+Step 2: Cek Data Pasien
+- Jika data lengkap > Lanjut ke Step 3
 - Jika data belum lengkap:
   - Warning muncul dengan daftar field yang kurang
   - Pilih: Isi langsung di form ATAU klik "Lengkapi di Halaman Pasien"
 
-**Step 3: Isi Detail Rujukan**
-- Keluhan/Alasan rujukan *
-- Pilih dokter yang menangani *
+Step 3: Isi Detail Rujukan
+- Keluhan/Alasan rujukan (required)
+- Pilih dokter yang menangani (required)
 - Tanggal kunjungan (default: hari ini)
 - Catatan tambahan (optional)
 - Klik "Simpan Rujukan"
 
-**Kelola Rujukan**
+Kelola Rujukan
 - Filter: Semua / Sedang Berlangsung / Selesai
 - Pencarian by nama pasien
 - Tombol "Edit" untuk ubah diagnosis, treatment, resep
@@ -85,26 +85,26 @@ Tunggu ~30 detik hingga semua services siap, lalu akses:
 
 ---
 
-### 👥 USER (PASIEN) - Kelola Data Diri
+### USER (PASIEN) - Kelola Data Diri
 
-**Akses Menu "Profil Saya"**
+Akses Menu "Profil Saya"
 
-- **Lihat Profil**: Informasi personal & data medis
-- **Edit Profil**: Ubah Nama, Email, No HP
+- Lihat Profil: Informasi personal & data medis
+- Edit Profil: Ubah Nama, Email, No HP
 - Klik "Simpan Perubahan"
 
 ---
 
-### 📅 USER (PASIEN) - Lihat Riwayat Kunjungan
+### USER (PASIEN) - Lihat Riwayat Kunjungan
 
-**Akses Menu "Kunjungan Saya"**
+Akses Menu "Kunjungan Saya"
 
-- **Kunjungan Sedang Berlangsung**: Status, dokter, tanggal, keluhan
-- **Riwayat Kunjungan (Completed)**: Detail lengkap diagnosis, penanganan, resep
+- Kunjungan Sedang Berlangsung: Status, dokter, tanggal, keluhan
+- Riwayat Kunjungan (Completed): Detail lengkap diagnosis, penanganan, resep
 
 ---
 
-## 🚀 Cara Deploy
+## Cara Deploy
 
 ### Local (Docker)
 
@@ -167,18 +167,18 @@ MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/<database>
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| Services tidak jalan | `docker-compose logs` |
-| Database connection error | `docker-compose restart mongodb-auth mongodb-main` |
+| Services tidak jalan | docker-compose logs |
+| Database connection error | docker-compose restart mongodb-auth mongodb-main |
 | Port sudah dipakai | Ubah port di docker-compose.yml |
 | Admin belum ada | Sistem auto-create saat startup |
 
 ---
 
-## 📁 Struktur File
+## Struktur File
 
 ```
 sistem-data-pasien/
@@ -189,15 +189,14 @@ sistem-data-pasien/
 ├── docker-compose.yml   - Container orchestration
 ├── README.md            - Ini (penggunaan & deploy)
 ├── ARCHITECTURE.md      - Cara kerja & komponen detail
-├── DEPLOYMENT.md        - Advanced deployment guide
-├── CHANGELOG.md         - Version history
+├── QUICK_START.md       - Quick start guide
 ├── .env.example         - Environment template
 └── .gitignore          - Git exclusions
 ```
 
 ---
 
-## 📝 API Endpoints
+## API Endpoints
 
 ### Auth Service (Port 3001)
 
@@ -235,30 +234,30 @@ DELETE /api/visits/:id           - Delete (JWT, Admin)
 
 ---
 
-## 🔐 Security
+## Security
 
-✅ JWT Authentication (24-hour expiry)  
-✅ Password hashing (bcrypt)  
-✅ Role-based access control  
-✅ Input validation  
-✅ Secure credential management  
-
----
-
-## 🛠️ Tech Stack
-
-- **Backend**: Node.js, Express.js
-- **Database**: MongoDB (2 instances)
-- **Authentication**: JWT
-- **Frontend**: EJS, CSS3, Vanilla JS
-- **Container**: Docker & Docker Compose
-- **Deployment**: Azure Container Apps
+- JWT Authentication (24-hour expiry)
+- Password hashing (bcrypt)
+- Role-based access control
+- Input validation
+- Secure credential management
 
 ---
 
-## 📖 Dokumentasi Lengkap
+## Tech Stack
 
-Untuk memahami cara kerja sistem secara detail, lihat **[ARCHITECTURE.md](ARCHITECTURE.md)** yang mencakup:
+- Backend: Node.js, Express.js
+- Database: MongoDB (2 instances)
+- Authentication: JWT
+- Frontend: EJS, CSS3, Vanilla JS
+- Container: Docker & Docker Compose
+- Deployment: Azure Container Apps
+
+---
+
+## Dokumentasi Lengkap
+
+Untuk memahami cara kerja sistem secara detail, lihat ARCHITECTURE.md yang mencakup:
 - Arsitektur sistem & flow data
 - Daftar komponen & fungsinya
 - Model data & relationships
@@ -267,4 +266,4 @@ Untuk memahami cara kerja sistem secara detail, lihat **[ARCHITECTURE.md](ARCHIT
 
 ---
 
-**Status**: ✅ Production Ready
+Status: Production Ready

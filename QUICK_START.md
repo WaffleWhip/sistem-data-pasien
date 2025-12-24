@@ -2,20 +2,20 @@
 
 Panduan cepat untuk pull aplikasi dari GitHub dan menjalankannya.
 
-## 📥 Step 1: Clone dari GitHub
+## Step 1: Clone dari GitHub
 
 ```bash
 git clone https://github.com/WaffleWhip/sistem-data-pasien.git
 cd sistem-data-pasien
 ```
 
-## 🚀 Step 2: Jalankan dengan Docker
+## Step 2: Jalankan dengan Docker
 
 ```bash
 docker-compose up -d
 ```
 
-## ⏳ Step 3: Tunggu Services Siap
+## Step 3: Tunggu Services Siap
 
 Tunggu ~30 detik hingga semua services healthy:
 
@@ -23,9 +23,9 @@ Tunggu ~30 detik hingga semua services healthy:
 docker-compose ps
 ```
 
-Pastikan status semua container adalah **healthy** atau **Up**
+Pastikan status semua container adalah healthy atau Up
 
-## 🌐 Step 4: Akses Aplikasi
+## Step 4: Akses Aplikasi
 
 Buka browser dan go to:
 
@@ -33,7 +33,7 @@ Buka browser dan go to:
 http://localhost:3000
 ```
 
-## 🔐 Step 5: Login dengan Admin
+## Step 5: Login dengan Admin
 
 ```
 Email:    admin@healthcure.com
@@ -42,7 +42,7 @@ Password: admin123
 
 ---
 
-## ✅ Verify Semuanya Berjalan
+## Verify Semuanya Berjalan
 
 ```bash
 # Check all services running
@@ -59,36 +59,36 @@ docker-compose logs [service-name]
 
 ---
 
-## 📊 Apa yang Bisa Dilakukan
+## Apa yang Bisa Dilakukan
 
 ### Sebagai Admin (Default Login)
-- ✅ Lihat daftar pasien
-- ✅ Tambah/edit/hapus pasien
-- ✅ Lihat daftar dokter
-- ✅ Tambah/edit/hapus dokter
-- ✅ Buat rujukan untuk pasien
-- ✅ Track riwayat kunjungan
+- Lihat daftar pasien
+- Tambah/edit/hapus pasien
+- Lihat daftar dokter
+- Tambah/edit/hapus dokter
+- Buat rujukan untuk pasien
+- Track riwayat kunjungan
 
 ### Sebagai User (Register & Verify)
-- ✅ Lihat profil diri sendiri
-- ✅ Update data pribadi
-- ✅ Lihat riwayat kunjungan
+- Lihat profil diri sendiri
+- Update data pribadi
+- Lihat riwayat kunjungan
 
 ---
 
-## 🛑 Stop Services
+## Stop Services
 
 ```bash
 docker-compose down
 ```
 
-## 🔄 Restart Services
+## Restart Services
 
 ```bash
 docker-compose restart
 ```
 
-## 🔨 Rebuild Images (setelah ada perubahan code)
+## Rebuild Images (setelah ada perubahan code)
 
 ```bash
 docker-compose up -d --build
@@ -96,7 +96,7 @@ docker-compose up -d --build
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Services tidak berjalan
 ```bash
@@ -104,7 +104,7 @@ docker-compose logs
 ```
 
 ### Port sudah digunakan
-Edit `docker-compose.yml`, ubah port:
+Edit docker-compose.yml, ubah port:
 ```yaml
 ports:
   - "3000:3000"  # ubah 3000 jadi port lain, misal 8000
@@ -123,6 +123,6 @@ docker-compose up -d
 
 ---
 
-**Status:** ✅ Ready to use!
+Status: Ready to use!
 
-Selamat menggunakan HealthCure! 🎉
+Selamat menggunakan HealthCure.
