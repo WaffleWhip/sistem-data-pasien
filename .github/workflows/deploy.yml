@@ -1,0 +1,133 @@
+name: Build and Deploy to Azure
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: healthcure6546788.azurecr.io
+  RESOURCE_GROUP: healthcure-rg
+  CONTAINER_ENV: healthcure-env
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Login to Azure Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+
+    - name: Build and push Frontend
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend
+        push: true
+        tags: ${{ env.REGISTRY }}/healthcure-frontend:latest
+
+    - name: Build and push Auth Service
+      uses: docker/build-push-action@v4
+      with:
+        context: ./auth-service
+        push: true
+        tags: ${{ env.REGISTRY }}/healthcure-auth-service:latest
+
+    - name: Build and push Main Service
+      uses: docker/build-push-action@v4
+      with:
+        context: ./main-service
+        push: true
+        tags: ${{ env.REGISTRY }}/healthcure-main-service:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy to Container Apps
+      run: |
+        az containerapp env create \
+          --name ${{ env.CONTAINER_ENV }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --location eastasia 2>/dev/null || true
+
+        ACR_USERNAME=$(az acr credential show --name healthcure6546788 --query username -o tsv)
+        ACR_PASSWORD=$(az acr credential show --name healthcure6546788 --query 'passwords[0].value' -o tsv)
+
+        # Deploy Frontend
+        az containerapp create \
+          --name healthcure-frontend \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --environment ${{ env.CONTAINER_ENV }} \
+          --image ${{ env.REGISTRY }}/healthcure-frontend:latest \
+          --target-port 3000 \
+          --ingress external \
+          --registry-server ${{ env.REGISTRY }} \
+          --registry-username $ACR_USERNAME \
+          --registry-password $ACR_PASSWORD \
+          --env-vars AUTH_SERVICE_URL="http://healthcure-auth:3001" MAIN_SERVICE_URL="http://healthcure-main:3002" 2>/dev/null || \
+        az containerapp update \
+          --name healthcure-frontend \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --image ${{ env.REGISTRY }}/healthcure-frontend:latest
+
+        # Deploy Auth Service
+        az containerapp create \
+          --name healthcure-auth \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --environment ${{ env.CONTAINER_ENV }} \
+          --image ${{ env.REGISTRY }}/healthcure-auth-service:latest \
+          --target-port 3001 \
+          --ingress internal \
+          --registry-server ${{ env.REGISTRY }} \
+          --registry-username $ACR_USERNAME \
+          --registry-password $ACR_PASSWORD \
+          --env-vars MONGODB_URI="mongodb://healthcure-mongodb:27017/auth_db" NODE_ENV="production" JWT_SECRET="your-secret-key-change-this" 2>/dev/null || \
+        az containerapp update \
+          --name healthcure-auth \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --image ${{ env.REGISTRY }}/healthcure-auth-service:latest
+
+        # Deploy Main Service
+        az containerapp create \
+          --name healthcure-main \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --environment ${{ env.CONTAINER_ENV }} \
+          --image ${{ env.REGISTRY }}/healthcure-main-service:latest \
+          --target-port 3002 \
+          --ingress internal \
+          --registry-server ${{ env.REGISTRY }} \
+          --registry-username $ACR_USERNAME \
+          --registry-password $ACR_PASSWORD \
+          --env-vars MONGODB_URI="mongodb://healthcure-mongodb:27017/main_db" NODE_ENV="production" JWT_SECRET="your-secret-key-change-this" 2>/dev/null || \
+        az containerapp update \
+          --name healthcure-main \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --image ${{ env.REGISTRY }}/healthcure-main-service:latest
+
+        # Deploy MongoDB
+        az containerapp create \
+          --name healthcure-mongodb \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --environment ${{ env.CONTAINER_ENV }} \
+          --image mongo:4.4 \
+          --target-port 27017 \
+          --ingress internal 2>/dev/null || true
