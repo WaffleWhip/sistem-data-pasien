@@ -50,7 +50,7 @@ if ($LASTEXITCODE -ne 0) {
         exit 1
     }
 } else {
-    Write-Host "SSH client found: $($sshTest.Trim())" -ForegroundColor Green
+    Write-Host "SSH client found" -ForegroundColor Green
 }
 Write-Host ""
 
