@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # MongoDB for Auth Service (User Database)
+  mongodb-auth:
+    image: mongo:4.4
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: auth_db
+    volumes:
+      - ${WEBAPP_STORAGE_HOME}/site/wwwroot/auth_data:/data/db
+    networks:
+      - healthcure-network
+
+  # MongoDB for Main Service (Project Database)
+  mongodb-main:
+    image: mongo:4.4
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: main_db
+    volumes:
+      - ${WEBAPP_STORAGE_HOME}/site/wwwroot/main_data:/data/db
+    networks:
+      - healthcure-network
+
+  # Auth Service
+  auth-service:
+    image: ${ACR_NAME}.azurecr.io/healthcure-auth-service:latest
+    restart: always
+    environment:
+      PORT: 3001
+      MONGODB_URI: mongodb://mongodb-auth:27017/auth_db
+      JWT_SECRET: ${JWT_SECRET:-healthcure-super-secret-jwt-key-2024}
+      JWT_EXPIRES_IN: 24h
+      NODE_ENV: production
+    depends_on:
+      - mongodb-auth
+    networks:
+      - healthcure-network
+    command: sh -c "node create-admin.js && node src/index.js"
+
+  # Main Service
+  main-service:
+    image: ${ACR_NAME}.azurecr.io/healthcure-main-service:latest
+    restart: always
+    environment:
+      PORT: 3002
+      MONGODB_URI: mongodb://mongodb-main:27017/main_db
+      JWT_SECRET: ${JWT_SECRET:-healthcure-super-secret-jwt-key-2024}
+      NODE_ENV: production
+    depends_on:
+      - mongodb-main
+    networks:
+      - healthcure-network
+
+  # Frontend Gateway Service
+  frontend:
+    image: ${ACR_NAME}.azurecr.io/healthcure-frontend:latest
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:3001
+      MAIN_SERVICE_URL: http://main-service:3002
+      NODE_ENV: production
+    depends_on:
+      - auth-service
+      - main-service
+    networks:
+      - healthcure-network
+
+networks:
+  healthcure-network:
+    driver: bridge
