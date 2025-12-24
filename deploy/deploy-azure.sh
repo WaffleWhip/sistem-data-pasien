@@ -182,6 +182,8 @@ fi
 echo "[2/8] Registering Azure providers..."
 az provider register --namespace Microsoft.ContainerRegistry --wait
 az provider register --namespace Microsoft.App --wait
+az provider register --namespace Microsoft.OperationalInsights --wait
+az provider register --namespace Microsoft.KubernetesConfiguration --wait
 
 # Step 3: Create Resource Group
 echo "[3/8] Creating Resource Group..."
@@ -215,10 +217,30 @@ docker push ${ACR_SERVER}/healthcure-frontend:latest
 
 # Step 7: Create Container Apps Environment
 echo "[7/8] Creating Container Apps Environment..."
+
+# Create a temp Log Analytics workspace for Container Apps
+LOG_WORKSPACE_NAME="healthcure-logs-$RANDOM"
+echo "Creating Log Analytics workspace: $LOG_WORKSPACE_NAME..."
+az monitor log-analytics workspace create \
+    --resource-group $RESOURCE_GROUP \
+    --workspace-name $LOG_WORKSPACE_NAME
+
+WORKSPACE_ID=$(az monitor log-analytics workspace show \
+    --resource-group $RESOURCE_GROUP \
+    --workspace-name $LOG_WORKSPACE_NAME \
+    --query customerId -o tsv)
+
+WORKSPACE_KEY=$(az monitor log-analytics workspace get-shared-keys \
+    --resource-group $RESOURCE_GROUP \
+    --workspace-name $LOG_WORKSPACE_NAME \
+    --query primarySharedKey -o tsv)
+
 az containerapp env create \
     --name healthcure-env \
     --resource-group $RESOURCE_GROUP \
-    --location $LOCATION
+    --location $LOCATION \
+    --logs-workspace-id $WORKSPACE_ID \
+    --logs-workspace-key $WORKSPACE_KEY
 
 # Get ACR credentials
 ACR_USERNAME=$(az acr credential show --name $ACR_NAME --query username -o tsv)
