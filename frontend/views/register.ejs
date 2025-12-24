@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - HealthCure</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .auth-page {
+      background: linear-gradient(135deg, #0a1628 0%, #1e3a5f 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    .glow-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(100px);
+      z-index: 0;
+    }
+    .glow-orb-1 {
+      width: 400px;
+      height: 400px;
+      background: rgba(59, 130, 246, 0.12);
+      top: -100px;
+      right: -100px;
+    }
+    .glow-orb-2 {
+      width: 350px;
+      height: 350px;
+      background: rgba(212, 175, 55, 0.08);
+      bottom: -80px;
+      left: -80px;
+    }
+    .auth-card {
+      position: relative;
+      z-index: 1;
+    }
+    .step-indicator {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .step {
+      width: 35px;
+      height: 35px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.875rem;
+      background: var(--gray-200);
+      color: var(--gray-500);
+      transition: all 0.3s ease;
+    }
+    .step.active {
+      background: var(--accent);
+      color: white;
+    }
+    .step.completed {
+      background: var(--success);
+      color: white;
+    }
+    .patient-match-card {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      color: white;
+      margin-bottom: 1.5rem;
+    }
+    .patient-match-card h4 {
+      color: white;
+      margin-bottom: 0.5rem;
+    }
+    .patient-match-card p {
+      opacity: 0.9;
+      font-size: 0.875rem;
+    }
+    .patient-info {
+      background: rgba(255,255,255,0.15);
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin-top: 1rem;
+    }
+    .patient-info-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .patient-info-item:last-child {
+      border-bottom: none;
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="auth-page">
+    <div class="glow-orb glow-orb-1"></div>
+    <div class="glow-orb glow-orb-2"></div>
+    <div class="auth-card" style="max-width: 500px;">
+      <div class="auth-header">
+        <a href="/" class="auth-logo" style="text-decoration: none;">
+          <img src="/logo.svg" alt="HealthCure" style="width: 50px; height: 50px;">
+        </a>
+        <h2>Buat Akun Baru</h2>
+        <p>Daftar untuk mengakses HealthCure</p>
+      </div>
+      
+      <div class="auth-body">
+        <div class="step-indicator">
+          <div class="step active" id="step1-indicator">1</div>
+          <div class="step" id="step2-indicator">2</div>
+        </div>
+        
+        <div id="alert-container"></div>
+        
+        <!-- STEP 1: Check Email & Phone -->
+        <div id="step1">
+          <h4 style="margin-bottom: 1rem; text-align: center;">Verifikasi Email & No. HP</h4>
+          <p class="text-muted text-center mb-4" style="font-size: 0.875rem;">
+            Masukkan email dan nomor HP untuk mengecek apakah data Anda sudah terdaftar sebagai pasien
+          </p>
+          
+          <form id="check-form">
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" id="check-email" placeholder="Masukkan email" required>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Nomor Telepon</label>
+              <input type="tel" class="form-control" id="check-phone" placeholder="Contoh: 081234567890" required>
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+              <i class="fas fa-search"></i>
+              Cek Data
+            </button>
+          </form>
+        </div>
+        
+        <!-- STEP 2: Register (if match found, show patient info) -->
+        <div id="step2" class="hidden">
+          <!-- Patient Match Card (shown if match found) -->
+          <div id="patient-match-card" class="hidden" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 0.75rem; padding: 1rem; color: white; margin-bottom: 1rem; display: flex; align-items: center; gap: 1rem;">
+            <div style="flex-shrink: 0;">
+              <i class="fas fa-check-circle" style="font-size: 1.5rem;"></i>
+            </div>
+            <div style="flex: 1; font-size: 0.875rem;">
+              <strong>Data Pasien Ditemukan!</strong><br>
+              <span id="match-summary">-</span>
+            </div>
+          </div>
+          
+          <!-- No Match Info (shown if no match) -->
+          <div id="no-match-info" class="alert alert-info hidden" style="padding: 0.75rem; font-size: 0.875rem;">
+            <i class="fas fa-info-circle"></i>
+            Data pasien tidak ditemukan. Mendaftar sebagai user baru.
+          </div>
+          
+          <form id="register-form">
+            <input type="hidden" id="patient-id">
+            
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Nama Lengkap</label>
+              <input type="text" class="form-control" id="name" placeholder="Masukkan nama lengkap" required style="padding: 0.6rem 0.75rem;">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Email</label>
+              <input type="email" class="form-control" id="email" readonly style="padding: 0.6rem 0.75rem;">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Nomor Telepon</label>
+              <input type="tel" class="form-control" id="phone" readonly style="padding: 0.6rem 0.75rem;">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Password</label>
+              <input type="password" class="form-control" id="password" placeholder="Minimal 6 karakter" required minlength="6" style="padding: 0.6rem 0.75rem;">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Konfirmasi Password</label>
+              <input type="password" class="form-control" id="confirm-password" placeholder="Ulangi password" required style="padding: 0.6rem 0.75rem;">
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem;">
+              <i class="fas fa-user-plus"></i>
+              Daftar
+            </button>
+            
+            <button type="button" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem; padding: 0.6rem;" onclick="goToStep1()">
+              <i class="fas fa-arrow-left"></i>
+              Kembali
+            </button>
+          </form>
+        </div>
+      </div>
+      
+      <div class="auth-footer">
+        <p>Sudah punya akun? <a href="/login">Masuk di sini</a></p>
+      </div>
+    </div>
+  </div>
+  
+  <script src="/js/app.js"></script>
+  <script>
+    // Redirect if already logged in
+    if (app.getToken()) {
+      window.location.href = '/dashboard';
+    }
+    
+    let matchedPatient = null;
+    
+    function goToStep1() {
+      document.getElementById('step1').classList.remove('hidden');
+      document.getElementById('step2').classList.add('hidden');
+      document.getElementById('step1-indicator').classList.add('active');
+      document.getElementById('step1-indicator').classList.remove('completed');
+      document.getElementById('step2-indicator').classList.remove('active');
+      document.getElementById('alert-container').innerHTML = '';
+    }
+    
+    function goToStep2(email, phone, patient = null) {
+      document.getElementById('step1').classList.add('hidden');
+      document.getElementById('step2').classList.remove('hidden');
+      document.getElementById('step1-indicator').classList.remove('active');
+      document.getElementById('step1-indicator').classList.add('completed');
+      document.getElementById('step2-indicator').classList.add('active');
+      
+      // Set email and phone from step 1
+      document.getElementById('email').value = email;
+      document.getElementById('phone').value = phone;
+      
+      if (patient) {
+        matchedPatient = patient;
+        document.getElementById('patient-id').value = patient.patientId;
+        document.getElementById('name').value = patient.name;
+        document.getElementById('name').readOnly = true;
+        document.getElementById('match-summary').textContent = `${patient.name} (${patient.phone})`;
+        document.getElementById('patient-match-card').classList.remove('hidden');
+        document.getElementById('patient-match-card').style.display = 'flex';
+        document.getElementById('no-match-info').classList.add('hidden');
+      } else {
+        matchedPatient = null;
+        document.getElementById('patient-id').value = '';
+        document.getElementById('name').value = '';
+        document.getElementById('name').readOnly = false;
+        document.getElementById('patient-match-card').classList.add('hidden');
+        document.getElementById('patient-match-card').style.display = 'none';
+        document.getElementById('no-match-info').classList.remove('hidden');
+      }
+    }
+    
+    // Step 1: Check email & phone
+    document.getElementById('check-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const email = document.getElementById('check-email').value.trim();
+      const phone = document.getElementById('check-phone').value.trim();
+      const alertContainer = document.getElementById('alert-container');
+      
+      app.showLoading();
+      alertContainer.innerHTML = '';
+      
+      try {
+        // First check if email already exists in auth service
+        const authCheck = await fetch('/api/auth/check-email-phone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, phone })
+        });
+        
+        const authData = await authCheck.json();
+        
+        if (!authData.success && authData.status === 'email_exists') {
+          alertContainer.innerHTML = `
+            <div class="alert alert-warning">
+              <i class="fas fa-exclamation-triangle"></i>
+              ${authData.message}
+            </div>
+          `;
+          app.hideLoading();
+          return;
+        }
+        
+        // Check if patient exists with matching email/phone
+        const patientCheck = await fetch('/api/patients/check-match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, phone })
+        });
+        
+        const patientData = await patientCheck.json();
+        
+        if (patientData.success) {
+          if (patientData.status === 'match_found') {
+            // Found matching patient - proceed to step 2 with auto-bind
+            goToStep2(email, phone, patientData.data);
+          } else if (patientData.status === 'already_linked') {
+            alertContainer.innerHTML = `
+              <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                ${patientData.message}
+              </div>
+            `;
+          } else {
+            // No match - proceed to step 2 as new user
+            goToStep2(email, phone, null);
+          }
+        }
+      } catch (error) {
+        alertContainer.innerHTML = `
+          <div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle"></i>
+            Terjadi kesalahan. Silakan coba lagi.
+          </div>
+        `;
+      } finally {
+        app.hideLoading();
+      }
+    });
+    
+    // Step 2: Register
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const phone = document.getElementById('phone').value;
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirm-password').value;
+      const patientId = document.getElementById('patient-id').value;
+      const alertContainer = document.getElementById('alert-container');
+      
+      if (password !== confirmPassword) {
+        alertContainer.innerHTML = `
+          <div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle"></i>
+            Password dan konfirmasi password tidak cocok
+          </div>
+        `;
+        return;
+      }
+      
+      app.showLoading();
+      
+      try {
+        // Register user
+        const registerResponse = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            name, 
+            email, 
+            phone,
+            password, 
+            role: 'user',
+            patientId: patientId || null
+          })
+        });
+        
+        const registerData = await registerResponse.json();
+        
+        if (registerData.success) {
+          const userId = registerData.data.user.id;
+          let finalPatientId = patientId;
+          
+          // If there's a matched patient, auto-bind
+          if (patientId) {
+            await fetch('/api/patients/auto-bind', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                patientId: patientId,
+                userId: userId,
+                userName: name,
+                userEmail: email
+              })
+            });
+          } else {
+            // No existing patient - create new patient record
+            const createPatientResponse = await fetch('/api/patients/create-from-user', {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${registerData.data.token}`
+              },
+              body: JSON.stringify({
+                name: name,
+                email: email,
+                phone: phone,
+                userId: userId
+              })
+            });
+            
+            const createPatientData = await createPatientResponse.json();
+            if (createPatientData.success) {
+              finalPatientId = createPatientData.data._id;
+              // Update user with patientId
+              await fetch(`/api/auth/users/${userId}`, {
+                method: 'PUT',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${registerData.data.token}`
+                },
+                body: JSON.stringify({ patientId: finalPatientId })
+              });
+              
+              // Update user data with patientId
+              registerData.data.user.patientId = finalPatientId;
+            }
+          }
+          
+          app.setToken(registerData.data.token);
+          app.setUser(registerData.data.user);
+          app.showToast(matchedPatient ? 'Registrasi berhasil! Akun terhubung dengan data pasien.' : 'Registrasi berhasil!', 'success');
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 500);
+        } else {
+          alertContainer.innerHTML = `
+            <div class="alert alert-danger">
+              <i class="fas fa-exclamation-circle"></i>
+              ${registerData.message}
+            </div>
+          `;
+        }
+      } catch (error) {
+        alertContainer.innerHTML = `
+          <div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle"></i>
+            Terjadi kesalahan. Silakan coba lagi.
+          </div>
+        `;
+      } finally {
+        app.hideLoading();
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Pasien - HealthCure</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="container" style="justify-content: space-between;">
+      <a href="/dashboard" class="navbar-brand">
+        <img src="/logo.svg" alt="HealthCure" style="width: 40px; height: 40px;">
+        <span class="brand-text"><span class="brand-health">Health</span><span class="brand-cure">Cure</span></span>
+      </a>
+      
+      <div class="navbar-user">
+        <!-- Notification Bell -->
+        <div class="notification-bell user-only" onclick="app.toggleNotificationDropdown()">
+          <div class="bell-icon">
+            <i class="fas fa-bell"></i>
+          </div>
+          <span class="badge-count" id="notif-badge" style="display: none;">0</span>
+          <div class="notification-dropdown" id="notif-dropdown">
+            <div class="notification-header">
+              <span>Notifikasi</span>
+            </div>
+            <div class="notification-list" id="notif-dropdown-list">
+              <div class="notification-empty">
+                <i class="fas fa-bell-slash"></i>
+                <p>Tidak ada notifikasi</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="user-info">
+          <div class="user-name" id="navbar-user-name">Loading...</div>
+          <div class="user-role" id="navbar-user-role">-</div>
+        </div>
+        <div class="user-avatar" id="navbar-user-avatar">-</div>
+      </div>
+    </div>
+  </nav>
+  
+  <!-- Main Content -->
+  <div class="layout">
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <a href="/dashboard" class="sidebar-link">
+          <i class="fas fa-tachometer-alt"></i>
+          Dashboard
+        </a>
+        
+        <!-- Admin Menu -->
+        <div class="admin-only hidden">
+          <a href="/referrals" class="sidebar-link">
+            <i class="fas fa-clipboard-list"></i>
+            Rujukan Pasien
+          </a>
+          
+          <div class="sidebar-section">
+            <h6 class="sidebar-section-title">Data</h6>
+          </div>
+          <a href="/patients" class="sidebar-link active">
+            <i class="fas fa-users"></i>
+            Data Pasien
+          </a>
+          <a href="/doctors" class="sidebar-link">
+            <i class="fas fa-user-md"></i>
+            Data Dokter
+          </a>
+        </div>
+        
+        <!-- User Menu -->
+        <div class="user-only hidden">
+          <div class="sidebar-section">
+            <h6 class="sidebar-section-title">Kunjungan</h6>
+          </div>
+          <a href="/my-visits" class="sidebar-link">
+            <i class="fas fa-calendar-check"></i>
+            Kunjungan Saya
+          </a>
+          <a href="/doctors-list" class="sidebar-link">
+            <i class="fas fa-user-md"></i>
+            Daftar Dokter
+          </a>
+        </div>
+        
+        <div class="sidebar-section">
+          <h6 class="sidebar-section-title">Akun</h6>
+        </div>
+        <a href="/profile" class="sidebar-link">
+          <i class="fas fa-user-circle"></i>
+          Profil Saya
+        </a>
+        
+        <div class="sidebar-logout">
+          <a href="#" class="sidebar-link" onclick="app.logout(); return false;">
+            <i class="fas fa-sign-out-alt"></i>
+            Log Out
+          </a>
+        </div>
+      </nav>
+    </aside>
+    
+    <main class="main-content">
+      <div class="page-header">
+        <h1 class="page-title">Data Pasien</h1>
+        <p class="page-subtitle">Kelola data pasien klinik (Pasien baru dibuat melalui menu Rujukan Pasien)</p>
+      </div>
+      
+      <!-- Data Table -->
+      <div class="table-container">
+        <div class="table-header">
+          <h3 class="table-title"><i class="fas fa-users"></i> Daftar Pasien</h3>
+          <div class="table-actions">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input type="text" id="search-input" placeholder="Cari pasien...">
+            </div>
+            <button class="btn btn-gold admin-only" onclick="openAddModal()">
+              <i class="fas fa-plus"></i>
+              Tambah Pasien
+            </button>
+          </div>
+        </div>
+        
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nama</th>
+                <th>Email</th>
+                <th>No. Telepon</th>
+                <th>Jenis Kelamin</th>
+                <th>Usia</th>
+                <th>Dokter</th>
+                <th>Status</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="patients-table">
+              <tr>
+                <td colspan="8" class="text-center text-muted">Memuat data...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+  
+  <!-- Edit Modal -->
+  <div class="modal-overlay" id="patient-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">Tambah Data Pasien</h3>
+        <button class="modal-close" onclick="app.closeModal('patient-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="patient-form">
+          <input type="hidden" id="patient-id">
+          <input type="hidden" id="is-new-patient" value="false">
+          
+          <div class="form-group">
+            <label class="form-label">Nama Lengkap</label>
+            <input type="text" class="form-control" id="patient-name" placeholder="Masukkan nama lengkap" required>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" id="patient-email" placeholder="Masukkan email (opsional)">
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Tanggal Lahir</label>
+              <input type="date" class="form-control" id="patient-dob" required>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Jenis Kelamin</label>
+              <select class="form-select" id="patient-gender" required>
+                <option value="">Pilih jenis kelamin</option>
+                <option value="Laki-laki">Laki-laki</option>
+                <option value="Perempuan">Perempuan</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Alamat</label>
+            <textarea class="form-control" id="patient-address" placeholder="Masukkan alamat lengkap" required></textarea>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">No. Telepon</label>
+              <input type="tel" class="form-control" id="patient-phone" placeholder="Contoh: 081234567890" required>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Golongan Darah</label>
+              <select class="form-select" id="patient-blood">
+                <option value="-">Tidak diketahui</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="AB">AB</option>
+                <option value="O">O</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Alergi</label>
+            <input type="text" class="form-control" id="patient-allergies" placeholder="Contoh: Penisilin, Seafood">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="app.closeModal('patient-modal')">Batal</button>
+        <button class="btn btn-primary" onclick="savePatient()">
+          <i class="fas fa-save"></i>
+          <span id="save-btn-text">Simpan</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- View Modal -->
+  <div class="modal-overlay" id="view-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Detail Pasien</h3>
+        <button class="modal-close" onclick="app.closeModal('view-modal')">&times;</button>
+      </div>
+      <div class="modal-body" id="view-content">
+        <!-- Content will be loaded dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="app.closeModal('view-modal')">Tutup</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="/js/app.js"></script>
+  <script>
+    let currentUser = null;
+    let patients = [];
+    
+    // Check authentication
+    (async () => {
+      currentUser = await app.checkAuth();
+      if (currentUser) {
+        app.updateNavbarUser(currentUser);
+        app.updateUIForRole(currentUser);
+        loadPatients();
+        
+        // Load notifications for non-admin
+        if (currentUser.role !== 'admin') {
+          app.loadNotifications();
+        }
+        
+        // Check if action=add query param exists
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('action') === 'add') {
+          setTimeout(() => openAddModal(), 300);
+        }
+      }
+    })();
+    
+    // Load patients
+    async function loadPatients() {
+      try {
+        const response = await app.apiRequest('/api/patients');
+        if (response.success) {
+          patients = response.data;
+          renderTable();
+        }
+      } catch (error) {
+        app.showToast('Gagal memuat data pasien', 'error');
+      }
+    }
+    
+    // Render table
+    function renderTable(data = patients) {
+      const tbody = document.getElementById('patients-table');
+      
+      if (data.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8">
+              <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <h3>Belum ada data pasien</h3>
+                <p>Buat rujukan baru untuk menambahkan pasien</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
+      tbody.innerHTML = data.map(patient => {
+        let statusBadge = '';
+        if (patient.userId || patient.linkStatus === 'linked') {
+          statusBadge = '<span class="badge badge-success">Terhubung</span>';
+        } else if (patient.linkStatus === 'pending') {
+          statusBadge = '<span class="badge badge-warning">Pending</span>';
+        } else {
+          statusBadge = '<span class="badge badge-secondary">Belum Terhubung</span>';
+        }
+        
+        return `
+        <tr>
+          <td><strong>${patient.name}</strong></td>
+          <td>${patient.email || '<span class="text-muted">-</span>'}</td>
+          <td>${patient.phone}</td>
+          <td>${patient.gender}</td>
+          <td>${app.calculateAge(patient.dateOfBirth)}</td>
+          <td>${patient.doctor ? patient.doctor.name : '<span class="text-muted">-</span>'}</td>
+          <td>${statusBadge}</td>
+          <td>
+            <div class="action-btns">
+              <button class="btn btn-sm btn-primary btn-icon" onclick="viewPatient('${patient._id}')" title="Lihat">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="btn btn-sm btn-success btn-icon ${currentUser.role !== 'admin' && currentUser.patientId !== patient._id ? 'hidden' : ''}" onclick="editPatient('${patient._id}')" title="Edit">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn btn-sm btn-danger btn-icon admin-only" onclick="deletePatient('${patient._id}')" title="Hapus">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `}).join('');
+      
+      app.updateUIForRole(currentUser);
+    }
+    
+    // Search functionality
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase();
+      const filtered = patients.filter(p => 
+        p.name.toLowerCase().includes(query) || 
+        (p.email && p.email.toLowerCase().includes(query)) ||
+        p.phone.includes(query)
+      );
+      renderTable(filtered);
+    });
+    
+    // Open add modal
+    function openAddModal() {
+      document.getElementById('modal-title').textContent = 'Tambah Data Pasien';
+      document.getElementById('save-btn-text').textContent = 'Simpan';
+      document.getElementById('patient-id').value = '';
+      document.getElementById('is-new-patient').value = 'true';
+      document.getElementById('patient-name').value = '';
+      document.getElementById('patient-email').value = '';
+      document.getElementById('patient-dob').value = '';
+      document.getElementById('patient-gender').value = '';
+      document.getElementById('patient-address').value = '';
+      document.getElementById('patient-phone').value = '';
+      document.getElementById('patient-blood').value = '-';
+      document.getElementById('patient-allergies').value = '';
+      app.openModal('patient-modal');
+    }
+    
+    // View patient
+    async function viewPatient(id) {
+      try {
+        const response = await app.apiRequest(`/api/patients/${id}`);
+        if (response.success) {
+          const p = response.data;
+          let statusHtml = '';
+          if (p.userId) {
+            statusHtml = '<span class="badge badge-success">Terhubung dengan akun</span>';
+          } else if (p.bindRequest && p.bindRequest.status === 'pending') {
+            statusHtml = `<span class="badge badge-warning">Menunggu konfirmasi dari ${p.bindRequest.userName}</span>`;
+          } else {
+            statusHtml = '<span class="badge badge-secondary">Belum terhubung dengan akun</span>';
+          }
+          
+          // Load visit history for this patient
+          let visitHistoryHtml = '<p class="text-muted">Memuat riwayat...</p>';
+          try {
+            const visitsResponse = await app.apiRequest(`/api/visits/patient/${id}`);
+            if (visitsResponse.success && visitsResponse.data.length > 0) {
+              visitHistoryHtml = visitsResponse.data.map(v => `
+                <div style="padding: 0.75rem; background: var(--gray-50); border-radius: var(--radius); margin-bottom: 0.5rem; border-left: 3px solid ${v.status === 'completed' ? 'var(--success)' : 'var(--warning)'};">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong>${app.formatDate(v.visitDate)}</strong>
+                    <span class="badge ${v.status === 'completed' ? 'badge-success' : 'badge-warning'}" style="font-size: 0.7rem;">${v.status === 'completed' ? 'Selesai' : 'Berlangsung'}</span>
+                  </div>
+                  <p style="margin: 0.25rem 0; font-size: 0.85rem;"><strong>Dokter:</strong> ${v.doctor?.name || '-'} ${v.doctor?.specialization ? '(' + v.doctor.specialization + ')' : ''}</p>
+                  <p style="margin: 0.25rem 0; font-size: 0.85rem;"><strong>Keluhan:</strong> ${v.complaint}</p>
+                  ${v.diagnosis && v.diagnosis !== '-' ? `<p style="margin: 0.25rem 0; font-size: 0.85rem;"><strong>Diagnosis:</strong> ${v.diagnosis}</p>` : ''}
+                </div>
+              `).join('');
+            } else {
+              visitHistoryHtml = '<p class="text-muted">Belum ada riwayat kunjungan</p>';
+            }
+          } catch (e) {
+            visitHistoryHtml = '<p class="text-muted">Gagal memuat riwayat</p>';
+          }
+          
+          document.getElementById('view-content').innerHTML = `
+            <div style="display: grid; gap: 1rem;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                  <label class="form-label">Nama Lengkap</label>
+                  <p><strong>${p.name}</strong></p>
+                </div>
+                <div>
+                  <label class="form-label">Email</label>
+                  <p>${p.email || '<span class="text-muted">-</span>'}</p>
+                </div>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                <div>
+                  <label class="form-label">Tanggal Lahir</label>
+                  <p>${app.formatDate(p.dateOfBirth)}</p>
+                </div>
+                <div>
+                  <label class="form-label">Usia</label>
+                  <p>${app.calculateAge(p.dateOfBirth)}</p>
+                </div>
+                <div>
+                  <label class="form-label">Jenis Kelamin</label>
+                  <p>${p.gender}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label class="form-label">Alamat</label>
+                <p>${p.address}</p>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                  <label class="form-label">No. Telepon</label>
+                  <p>${p.phone}</p>
+                </div>
+                <div>
+                  <label class="form-label">Golongan Darah</label>
+                  <p><span class="badge badge-danger">${p.bloodType || '-'}</span></p>
+                </div>
+              </div>
+              
+              <div>
+                <label class="form-label">Alergi</label>
+                <p>${p.allergies || '-'}</p>
+              </div>
+              
+              <div>
+                <label class="form-label">Status Akun</label>
+                <p>${statusHtml}</p>
+              </div>
+              
+              <div>
+                <label class="form-label">Riwayat Kunjungan</label>
+                <div style="max-height: 250px; overflow-y: auto;">
+                  ${visitHistoryHtml}
+                </div>
+              </div>
+            </div>
+          `;
+          app.openModal('view-modal');
+        }
+      } catch (error) {
+        app.showToast('Gagal memuat detail pasien', 'error');
+      }
+    }
+    
+    // Edit patient
+    async function editPatient(id) {
+      try {
+        const response = await app.apiRequest(`/api/patients/${id}`);
+        if (response.success) {
+          const p = response.data;
+          document.getElementById('modal-title').textContent = 'Edit Data Pasien';
+          document.getElementById('save-btn-text').textContent = 'Simpan Perubahan';
+          document.getElementById('patient-id').value = p._id;
+          document.getElementById('is-new-patient').value = 'false';
+          document.getElementById('patient-name').value = p.name;
+          document.getElementById('patient-email').value = p.email || '';
+          document.getElementById('patient-dob').value = app.formatDateInput(p.dateOfBirth);
+          document.getElementById('patient-gender').value = p.gender;
+          document.getElementById('patient-address').value = p.address;
+          document.getElementById('patient-phone').value = p.phone;
+          document.getElementById('patient-blood').value = p.bloodType;
+          document.getElementById('patient-allergies').value = p.allergies || '';
+          
+          app.openModal('patient-modal');
+        }
+      } catch (error) {
+        app.showToast('Gagal memuat data pasien', 'error');
+      }
+    }
+    
+    // Save patient (add or edit)
+    async function savePatient() {
+      const id = document.getElementById('patient-id').value;
+      const isNew = document.getElementById('is-new-patient').value === 'true';
+      
+      const data = {
+        name: document.getElementById('patient-name').value,
+        email: document.getElementById('patient-email').value || null,
+        dateOfBirth: document.getElementById('patient-dob').value,
+        gender: document.getElementById('patient-gender').value,
+        address: document.getElementById('patient-address').value,
+        phone: document.getElementById('patient-phone').value,
+        bloodType: document.getElementById('patient-blood').value,
+        allergies: document.getElementById('patient-allergies').value || '-'
+      };
+      
+      // Validation
+      if (!data.name || !data.dateOfBirth || !data.gender || !data.address || !data.phone) {
+        app.showToast('Lengkapi semua field yang wajib diisi', 'error');
+        return;
+      }
+      
+      try {
+        app.showLoading();
+        
+        let response;
+        if (isNew) {
+          // Check if user exists with this email/phone
+          const email = data.email;
+          const phone = data.phone;
+          
+          const checkResponse = await app.apiRequest('/api/patients/check-user-match', {
+            method: 'POST',
+            body: JSON.stringify({ email, phone })
+          });
+          
+          let createBindRequest = false;
+          let matchedUserId = null;
+          
+          if (checkResponse.success && checkResponse.userFound) {
+            const confirm = await app.showConfirm(
+              'User Terdeteksi',
+              `User dengan email/HP ini sudah terdaftar: <strong>${checkResponse.user.name}</strong>. Kirim notifikasi binding ke user tersebut?`
+            );
+            if (confirm) {
+              createBindRequest = true;
+              matchedUserId = checkResponse.user.id;
+            }
+          }
+          
+          response = await app.apiRequest('/api/patients', {
+            method: 'POST',
+            body: JSON.stringify({
+              ...data,
+              medicalHistory: '-',
+              createBindRequest,
+              matchedUserId
+            })
+          });
+          
+          if (response.success) {
+            app.showToast('Pasien berhasil ditambahkan', 'success');
+          }
+        } else {
+          response = await app.apiRequest(`/api/patients/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+          });
+          
+          if (response.success) {
+            app.showToast('Data berhasil diupdate', 'success');
+          }
+        }
+        
+        app.closeModal('patient-modal');
+        loadPatients();
+      } catch (error) {
+        app.showToast(error.message, 'error');
+      } finally {
+        app.hideLoading();
+      }
+    }
+    
+    // Delete patient
+    async function deletePatient(id) {
+      const confirmed = await app.showConfirm('Hapus Pasien', 'Apakah Anda yakin ingin menghapus pasien ini? Data yang dihapus tidak dapat dikembalikan.');
+      if (!confirmed) return;
+      
+      try {
+        app.showLoading();
+        const response = await app.apiRequest(`/api/patients/${id}`, {
+          method: 'DELETE'
+        });
+        
+        if (response.success) {
+          app.showToast('Pasien berhasil dihapus', 'success');
+          loadPatients();
+        }
+      } catch (error) {
+        app.showToast(error.message, 'error');
+      } finally {
+        app.hideLoading();
+      }
+    }
+  </script>
+</body>
+</html>
+

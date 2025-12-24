@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profil - HealthCure</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="container" style="justify-content: space-between;">
+      <a href="/dashboard" class="navbar-brand">
+        <img src="/logo.svg" alt="HealthCure" style="width: 40px; height: 40px;">
+        <span class="brand-text"><span class="brand-health">Health</span><span class="brand-cure">Cure</span></span>
+      </a>
+      
+      <div class="navbar-user">
+        <!-- Notification Bell -->
+        <div class="notification-bell user-only" onclick="app.toggleNotificationDropdown()">
+          <div class="bell-icon">
+            <i class="fas fa-bell"></i>
+          </div>
+          <span class="badge-count" id="notif-badge" style="display: none;">0</span>
+          <div class="notification-dropdown" id="notif-dropdown">
+            <div class="notification-header">
+              <span>Notifikasi</span>
+            </div>
+            <div class="notification-list" id="notif-dropdown-list">
+              <div class="notification-empty">
+                <i class="fas fa-bell-slash"></i>
+                <p>Tidak ada notifikasi</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="user-info">
+          <div class="user-name" id="navbar-user-name">Loading...</div>
+          <div class="user-role" id="navbar-user-role">-</div>
+        </div>
+        <div class="user-avatar" id="navbar-user-avatar">-</div>
+      </div>
+    </div>
+  </nav>
+  
+  <!-- Main Content -->
+  <div class="layout">
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <a href="/dashboard" class="sidebar-link">
+          <i class="fas fa-tachometer-alt"></i>
+          Dashboard
+        </a>
+        
+        <!-- Admin Menu -->
+        <div class="admin-only hidden">
+          <a href="/referrals" class="sidebar-link">
+            <i class="fas fa-clipboard-list"></i>
+            Rujukan Pasien
+          </a>
+          
+          <div class="sidebar-section">
+            <h6 class="sidebar-section-title">Data</h6>
+          </div>
+          <a href="/patients" class="sidebar-link">
+            <i class="fas fa-users"></i>
+            Data Pasien
+          </a>
+          <a href="/doctors" class="sidebar-link">
+            <i class="fas fa-user-md"></i>
+            Data Dokter
+          </a>
+        </div>
+        
+        <!-- User Menu -->
+        <div class="user-only hidden">
+          <div class="sidebar-section">
+            <h6 class="sidebar-section-title">Kunjungan</h6>
+          </div>
+          <a href="/my-visits" class="sidebar-link">
+            <i class="fas fa-calendar-check"></i>
+            Kunjungan Saya
+          </a>
+          <a href="/doctors-list" class="sidebar-link">
+            <i class="fas fa-user-md"></i>
+            Daftar Dokter
+          </a>
+        </div>
+        
+        <div class="sidebar-section">
+          <h6 class="sidebar-section-title">Akun</h6>
+        </div>
+        <a href="/profile" class="sidebar-link active">
+          <i class="fas fa-user-circle"></i>
+          Profil Saya
+        </a>
+        
+        <div class="sidebar-logout">
+          <a href="#" class="sidebar-link" onclick="app.logout(); return false;">
+            <i class="fas fa-sign-out-alt"></i>
+            Log Out
+          </a>
+        </div>
+      </nav>
+    </aside>
+    
+    <main class="main-content">
+      <div class="page-header">
+        <h1 class="page-title">Profil Saya</h1>
+        <p class="page-subtitle">Kelola informasi akun Anda</p>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: 300px 1fr; gap: 2rem;">
+        <!-- Profile Card -->
+        <div class="card">
+          <div class="card-body" style="text-align: center;">
+            <div style="width: 120px; height: 120px; background: var(--gradient-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 3rem; color: white;">
+              <span id="profile-avatar">-</span>
+            </div>
+            <h3 id="profile-name">Loading...</h3>
+            <span class="badge badge-gold mt-2" id="profile-role">-</span>
+            <p class="text-muted mt-3" id="profile-email">-</p>
+            <p class="text-muted" style="font-size: 0.875rem;" id="profile-phone">-</p>
+            
+            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--gray-200);">
+            
+            <div style="text-align: left;">
+              <p style="font-size: 0.875rem; color: var(--gray-500); margin-bottom: 0.5rem;">
+                <i class="fas fa-calendar text-accent"></i> Member sejak
+              </p>
+              <p style="font-weight: 600;" id="profile-joined">-</p>
+            </div>
+            
+            <!-- Patient Medical Data (shown after referral) -->
+            <div id="patient-medical-data" class="user-only" style="display: none; margin-top: 1rem;">
+              <hr style="margin: 1rem 0; border: none; border-top: 1px solid var(--gray-200);">
+              <div style="text-align: left;">
+                <p style="font-size: 0.75rem; text-transform: uppercase; color: var(--gray-500); font-weight: 600; margin-bottom: 0.75rem;">
+                  <i class="fas fa-notes-medical"></i> Data Medis
+                </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-size: 0.85rem;">
+                  <div>
+                    <span style="color: var(--gray-500);">Gol. Darah</span>
+                    <p style="font-weight: 600; margin: 0.25rem 0 0;" id="profile-blood">-</p>
+                  </div>
+                  <div>
+                    <span style="color: var(--gray-500);">Jenis Kelamin</span>
+                    <p style="font-weight: 600; margin: 0.25rem 0 0;" id="profile-gender">-</p>
+                  </div>
+                  <div style="grid-column: span 2;">
+                    <span style="color: var(--gray-500);">Alergi</span>
+                    <p style="font-weight: 600; margin: 0.25rem 0 0;" id="profile-allergies">-</p>
+                  </div>
+                  <div style="grid-column: span 2;">
+                    <span style="color: var(--gray-500);">Alamat</span>
+                    <p style="font-weight: 600; margin: 0.25rem 0 0;" id="profile-address">-</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Edit Profile Card -->
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fas fa-edit"></i> Edit Profil</h3>
+          </div>
+          <div class="card-body">
+            <div id="alert-container"></div>
+            
+            <form id="profile-form">
+              <div class="form-group">
+                <label class="form-label">Nama Lengkap</label>
+                <input type="text" class="form-control" id="edit-name" placeholder="Masukkan nama lengkap" required>
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-control" id="edit-email" placeholder="Masukkan email" required>
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label">Nomor Telepon</label>
+                <input type="tel" class="form-control" id="edit-phone" placeholder="Masukkan nomor telepon" required>
+              </div>
+              
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i>
+                Simpan Perubahan
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      
+
+    </main>
+  </div>
+  
+  <script src="/js/app.js"></script>
+  <script>
+    let currentUser = null;
+    
+    // Check authentication
+    (async () => {
+      currentUser = await app.checkAuth();
+      if (currentUser) {
+        app.updateNavbarUser(currentUser);
+        app.updateUIForRole(currentUser);
+        loadProfile();
+        
+        if (currentUser.role !== 'admin') {
+          // Load notifications
+          app.loadNotifications();
+          
+          // Check for patient match
+          checkPatientMatch();
+        }
+      }
+    })();
+    
+    // Check for patient match
+    async function checkPatientMatch() {
+      if (currentUser.patientId) return; // Already linked
+      
+      // Check for link request notifications
+      try {
+        const notifResponse = await app.apiRequest('/api/notifications');
+        if (notifResponse.success) {
+          const linkRequests = notifResponse.data.filter(n => n.type === 'link_request' && !n.isRead);
+          if (linkRequests.length > 0) {
+            showLinkRequestCard(linkRequests[0]);
+            return;
+          }
+        }
+      } catch (e) {
+        console.log('No link request notifications');
+      }
+    }
+    
+    // Show link request card from notification
+    function showLinkRequestCard(notification) {
+      const container = document.getElementById('alert-container');
+      const data = notification.data;
+      container.innerHTML = `
+        <div class="patient-match-card">
+          <div class="match-icon">
+            <i class="fas fa-link"></i>
+          </div>
+          <div class="match-content">
+            <div class="match-title">Permintaan Hubungkan Data</div>
+            <div class="match-desc">Data pasien atas nama <strong>${data.patientName}</strong> cocok dengan akun Anda. Klik untuk menghubungkan.</div>
+          </div>
+          <div class="match-action" style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-sm" onclick="approveLink('${data.patientId}', '${notification._id}')">
+              <i class="fas fa-check"></i> Hubungkan
+            </button>
+            <button class="btn btn-sm" style="background: #dc2626;" onclick="rejectLink('${notification._id}')">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Approve link
+    async function approveLink(patientId, notifId) {
+      try {
+        app.showLoading();
+        
+        // Auto bind patient to user
+        const response = await app.apiRequest('/api/patients/auto-bind', {
+          method: 'POST',
+          body: JSON.stringify({
+            patientId: patientId,
+            userId: currentUser.id,
+            userName: currentUser.name,
+            userEmail: currentUser.email
+          })
+        });
+        
+        if (response.success) {
+          // Update user with patientId
+          await app.apiRequest(`/api/auth/users/${currentUser.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ patientId: patientId })
+          });
+          
+          // Mark notification as read
+          await app.apiRequest(`/api/notifications/${notifId}/read`, { method: 'PUT' });
+          
+          app.showToast('Data pasien berhasil dihubungkan!', 'success');
+          setTimeout(() => window.location.reload(), 1500);
+        }
+      } catch (error) {
+        app.showToast(error.message, 'error');
+      } finally {
+        app.hideLoading();
+      }
+    }
+    
+    // Reject link
+    async function rejectLink(notifId) {
+      try {
+        app.showLoading();
+        await app.apiRequest(`/api/notifications/${notifId}/read`, { method: 'PUT' });
+        document.getElementById('alert-container').innerHTML = '';
+        app.showToast('Permintaan ditolak', 'info');
+        app.loadNotifications();
+      } catch (error) {
+        app.showToast(error.message, 'error');
+      } finally {
+        app.hideLoading();
+      }
+    }
+    
+    // Load profile
+    async function loadProfile() {
+      document.getElementById('profile-name').textContent = currentUser.name;
+      document.getElementById('profile-email').textContent = currentUser.email;
+      document.getElementById('profile-phone').textContent = currentUser.phone ? `📱 ${currentUser.phone}` : '';
+      document.getElementById('profile-role').textContent = currentUser.role === 'admin' ? 'Administrator' : 'Pasien';
+      document.getElementById('profile-avatar').textContent = currentUser.name.charAt(0).toUpperCase();
+      document.getElementById('profile-joined').textContent = app.formatDate(currentUser.createdAt);
+      
+      document.getElementById('edit-name').value = currentUser.name;
+      document.getElementById('edit-email').value = currentUser.email;
+      document.getElementById('edit-phone').value = currentUser.phone || '';
+      
+      // Load patient medical data if user is patient
+      if (currentUser.role !== 'admin') {
+        await loadPatientMedicalData();
+      }
+    }
+    
+    // Load patient medical data
+    async function loadPatientMedicalData() {
+      try {
+        const response = await app.apiRequest('/api/patients/my-data');
+        if (response.success && response.data) {
+          const patient = response.data;
+          const medicalDataCard = document.getElementById('patient-medical-data');
+          
+          // Check if patient has any medical data
+          if (patient.bloodType || patient.gender || patient.allergies || patient.address) {
+            medicalDataCard.style.display = 'block';
+            document.getElementById('profile-blood').textContent = patient.bloodType || '-';
+            document.getElementById('profile-gender').textContent = patient.gender || '-';
+            document.getElementById('profile-allergies').textContent = patient.allergies || 'Tidak ada';
+            document.getElementById('profile-address').textContent = patient.address || '-';
+          }
+        }
+      } catch (error) {
+        console.log('No patient medical data found');
+      }
+    }
+    
+    // Update profile
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const name = document.getElementById('edit-name').value;
+      const email = document.getElementById('edit-email').value;
+      const phone = document.getElementById('edit-phone').value;
+      const alertContainer = document.getElementById('alert-container');
+      
+      try {
+        app.showLoading();
+        
+        // Update user profile
+        const response = await app.apiRequest(`/api/auth/users/${currentUser.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ name, email, phone })
+        });
+        
+        if (response.success) {
+          // Update local storage
+          const updatedUser = { ...currentUser, name, email, phone };
+          app.setUser(updatedUser);
+          currentUser = updatedUser;
+          
+          loadProfile();
+          app.updateNavbarUser(updatedUser);
+          
+          app.showToast('Profil berhasil diperbarui', 'success');
+          
+          // Reload notifications and check for patient match
+          if (!currentUser.patientId) {
+            app.loadNotifications();
+            checkPatientMatch();
+          }
+        }
+      } catch (error) {
+        alertContainer.innerHTML = `
+          <div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle"></i>
+            ${error.message}
+          </div>
+        `;
+      } finally {
+        app.hideLoading();
+      }
+    });
+    
+    // Auto bind patient
+    async function autoBindPatient(patientId) {
+      try {
+        app.showLoading();
+        const response = await app.apiRequest('/api/patients/auto-bind', {
+          method: 'POST',
+          body: JSON.stringify({
+            patientId: patientId,
+            userId: currentUser.id,
+            userName: currentUser.name,
+            userEmail: currentUser.email
+          })
+        });
+        
+        if (response.success) {
+          // Update user with patientId
+          await app.apiRequest(`/api/auth/users/${currentUser.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ patientId: patientId })
+          });
+          
+          app.showToast('Data pasien berhasil dihubungkan! Halaman akan dimuat ulang.', 'success');
+          setTimeout(() => window.location.reload(), 1500);
+        }
+      } catch (error) {
+        app.showToast(error.message, 'error');
+      } finally {
+        app.hideLoading();
+      }
+    }
+  </script>
+</body>
+</html>
+

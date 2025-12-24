@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rujukan Pasien - HealthCure</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .referral-card {
+      background: white;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--gray-200);
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      transition: all 0.3s ease;
+    }
+    .referral-card:hover {
+      box-shadow: var(--shadow-md);
+    }
+    .referral-card.ongoing {
+      border-left: 4px solid var(--warning);
+    }
+    .referral-card.completed {
+      border-left: 4px solid var(--success);
+    }
+    .referral-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+    .referral-patient {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .referral-avatar {
+      width: 50px;
+      min-width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 1.25rem;
+      flex-shrink: 0;
+    }
+    .referral-info h4 {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+    .referral-info p {
+      margin: 0.25rem 0 0;
+      font-size: 0.875rem;
+      color: var(--gray-500);
+    }
+    .referral-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      padding: 1rem 0;
+      border-top: 1px solid var(--gray-100);
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .referral-meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .referral-meta-item label {
+      font-size: 0.75rem;
+      color: var(--gray-500);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .referral-meta-item span {
+      font-size: 0.9rem;
+      color: var(--gray-700);
+    }
+    .referral-complaint {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: var(--gray-50);
+      border-radius: var(--radius);
+    }
+    .referral-complaint label {
+      font-size: 0.75rem;
+      color: var(--gray-500);
+      text-transform: uppercase;
+      font-weight: 600;
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    .referral-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .status-badge {
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status-badge.ongoing {
+      background: rgba(245, 158, 11, 0.15);
+      color: #d97706;
+    }
+    .status-badge.completed {
+      background: rgba(34, 197, 94, 0.15);
+      color: #16a34a;
+    }
+    .filter-tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .filter-tab {
+      padding: 0.5rem 1.25rem;
+      border-radius: 20px;
+      border: none;
+      background: var(--gray-100);
+      color: var(--gray-600);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .filter-tab:hover {
+      background: var(--gray-200);
+    }
+    .filter-tab.active {
+      background: var(--primary);
+      color: white;
+    }
+    .patient-search-result {
+      padding: 1rem;
+      background: var(--gray-50);
+      border-radius: var(--radius);
+      margin-bottom: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 2px solid transparent;
+    }
+    .patient-search-result:hover {
+      background: var(--gray-100);
+    }
+    .patient-search-result.selected {
+      border-color: var(--primary);
+      background: rgba(59, 130, 246, 0.05);
+    }
+    .new-patient-form {
+      display: none;
+      padding: 1rem;
+      background: var(--gray-50);
+      border-radius: var(--radius);
+      margin-top: 1rem;
+    }
+    .new-patient-form.show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="container" style="justify-content: space-between;">
+      <a href="/dashboard" class="navbar-brand">
+        <img src="/logo.svg" alt="HealthCure" style="width: 40px; height: 40px;">
+        <span class="brand-text"><span class="brand-health">Health</span><span class="brand-cure">Cure</span></span>
+      </a>
+      
+      <div class="navbar-user">
+        <div class="user-info">
+          <div class="user-name" id="navbar-user-name">Loading...</div>
+          <div class="user-role" id="navbar-user-role">-</div>
+        </div>
+        <div class="user-avatar" id="navbar-user-avatar">-</div>
+      </div>
+    </div>
+  </nav>
+  
+  <!-- Main Content -->
+  <div class="layout">
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <a href="/dashboard" class="sidebar-link">
+          <i class="fas fa-tachometer-alt"></i>
+          Dashboard
+        </a>
+        
+        <!-- Admin Menu -->
+        <div class="admin-only hidden">
+          <a href="/referrals" class="sidebar-link active">
+            <i class="fas fa-clipboard-list"></i>
+            Rujukan Pasien
+          </a>
+          
+          <div class="sidebar-section">
+            <h6 class="sidebar-section-title">Data</h6>
+          </div>
+          <a href="/patients" class="sidebar-link">
+            <i class="fas fa-users"></i>
+            Data Pasien
+          </a>
+          <a href="/doctors" class="sidebar-link">
+            <i class="fas fa-user-md"></i>
+            Data Dokter
+          </a>
+        </div>
+        
+        <!-- User Menu -->
+        <div class="user-only hidden">
+          <div class="sidebar-section">
+            <h6 class="sidebar-section-title">Kunjungan</h6>
+          </div>
+          <a href="/my-visits" class="sidebar-link">
+            <i class="fas fa-calendar-check"></i>
+            Kunjungan Saya
+          </a>
+          <a href="/doctors-list" class="sidebar-link">
+            <i class="fas fa-user-md"></i>
+            Daftar Dokter
+          </a>
+        </div>
+        
+        <div class="sidebar-section">
+          <h6 class="sidebar-section-title">Akun</h6>
+        </div>
+        <a href="/profile" class="sidebar-link">
+          <i class="fas fa-user-circle"></i>
+          Profil Saya
+        </a>
+        
+        <div class="sidebar-logout">
+          <a href="#" class="sidebar-link" onclick="app.logout(); return false;">
+            <i class="fas fa-sign-out-alt"></i>
+            Log Out
+          </a>
+        </div>
+      </nav>
+    </aside>
+    
+    <main class="main-content">
+      <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <h1 class="page-title">Rujukan Pasien</h1>
+          <p class="page-subtitle">Kelola rujukan dan kunjungan pasien</p>
+        </div>
+        <button class="btn btn-primary" onclick="openNewReferralModal()">
+          <i class="fas fa-plus"></i>
+          Buat Rujukan Baru
+        </button>
+      </div>
+      
+      <!-- Filter Tabs -->
+      <div class="filter-tabs">
+        <button class="filter-tab active" onclick="filterReferrals('all')" data-filter="all">
+          Semua
+        </button>
+        <button class="filter-tab" onclick="filterReferrals('ongoing')" data-filter="ongoing">
+          <i class="fas fa-clock"></i> Sedang Berlangsung
+        </button>
+        <button class="filter-tab" onclick="filterReferrals('completed')" data-filter="completed">
+          <i class="fas fa-check"></i> Selesai
+        </button>
+      </div>
+      
+      <!-- Search -->
+      <div class="search-box mb-4" style="max-width: 400px;">
+        <i class="fas fa-search"></i>
+        <input type="text" id="search-input" placeholder="Cari nama pasien...">
+      </div>
+      
+      <!-- Referrals List -->
+      <div id="referrals-list">
+        <div class="text-center text-muted py-4">
+          <i class="fas fa-spinner fa-spin"></i> Memuat data...
+        </div>
+      </div>
+    </main>
+  </div>
+  
+  <!-- New Referral Modal -->
+  <div class="modal-overlay" id="new-referral-modal">
+    <div class="modal" style="max-width: 700px;">
+      <div class="modal-header">
+        <h3><i class="fas fa-clipboard-list"></i> Buat Rujukan Baru</h3>
+        <button class="modal-close" onclick="app.closeModal('new-referral-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Step 1: Select/Create Patient -->
+        <div id="step-patient">
+          <h4 style="margin-bottom: 1rem;">1. Pilih atau Buat Data Pasien</h4>
+          
+          <div class="form-group">
+            <label class="form-label">Cari Pasien yang Sudah Terdaftar</label>
+            <input type="text" class="form-control" id="patient-search" placeholder="Cari berdasarkan nama, email, atau no HP...">
+          </div>
+          
+          <div id="patient-search-results" style="max-height: 200px; overflow-y: auto;">
+            <!-- Search results will appear here -->
+          </div>
+          
+          <div style="text-align: center; margin: 1rem 0;">
+            <span class="text-muted">atau</span>
+          </div>
+          
+          <button class="btn btn-secondary" style="width: 100%;" onclick="goToAddPatient()">
+            <i class="fas fa-plus"></i> Buat Pasien Baru
+          </button>
+        </div>
+        
+        <!-- Step 2: Complete Patient Data (if needed) -->
+        <div id="step-complete-data" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--gray-200); display: none;">
+          <div class="alert alert-warning" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem;">
+            <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+              <i class="fas fa-exclamation-triangle" style="color: #d97706; font-size: 1.25rem; margin-top: 2px;"></i>
+              <div style="flex: 1;">
+                <strong style="color: #d97706; display: block; margin-bottom: 0.25rem;">Data Pasien Belum Lengkap!</strong>
+                <p style="color: var(--gray-600); font-size: 0.875rem; margin: 0;">Lengkapi data pasien terlebih dahulu sebelum membuat rujukan, atau edit langsung di halaman Data Pasien.</p>
+              </div>
+            </div>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h4 style="margin: 0;">Lengkapi Data Pasien</h4>
+            <a href="/patients?action=edit&id=" class="btn btn-sm btn-primary" id="edit-patient-btn" style="text-decoration: none;">
+              <i class="fas fa-user-edit"></i> Lengkapi di Halaman Pasien
+            </a>
+          </div>
+          
+          <div id="incomplete-fields-list" style="background: var(--gray-50); border-radius: var(--radius); padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.875rem;">
+            <strong>Data yang belum lengkap:</strong>
+            <ul id="missing-fields-list" style="margin: 0.5rem 0 0; padding-left: 1.25rem; color: var(--gray-600);"></ul>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group" id="complete-dob-group">
+              <label class="form-label">Tanggal Lahir <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" id="complete-dob">
+            </div>
+            <div class="form-group" id="complete-gender-group">
+              <label class="form-label">Jenis Kelamin <span class="text-danger">*</span></label>
+              <select class="form-select" id="complete-gender">
+                <option value="">Pilih</option>
+                <option value="Laki-laki">Laki-laki</option>
+                <option value="Perempuan">Perempuan</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-group" id="complete-address-group">
+            <label class="form-label">Alamat <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="complete-address" rows="2" placeholder="Alamat lengkap"></textarea>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group" id="complete-blood-group">
+              <label class="form-label">Golongan Darah <span class="text-danger">*</span></label>
+              <select class="form-select" id="complete-blood">
+                <option value="">Pilih</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="AB">AB</option>
+                <option value="O">O</option>
+              </select>
+            </div>
+            <div class="form-group" id="complete-allergies-group">
+              <label class="form-label">Alergi</label>
+              <input type="text" class="form-control" id="complete-allergies" placeholder="Contoh: Penisilin, Seafood (kosongkan jika tidak ada)">
+            </div>
+          </div>
+        </div>
+        
+        <!-- Step 3: Referral Details -->
+        <div id="step-referral" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--gray-200);">
+          <h4 style="margin-bottom: 1rem;" id="step-referral-title">2. Detail Rujukan</h4>
+          
+          <div id="selected-patient-info" class="alert alert-info mb-3" style="display: none;">
+            <strong>Pasien Terpilih:</strong> <span id="selected-patient-name">-</span>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Keluhan / Alasan Rujukan *</label>
+            <textarea class="form-control" id="referral-complaint" rows="3" placeholder="Jelaskan keluhan atau alasan pasien dirujuk..."></textarea>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Dokter yang Menangani *</label>
+              <select class="form-select" id="referral-doctor">
+                <option value="">Pilih dokter</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tanggal Kunjungan</label>
+              <input type="date" class="form-control" id="referral-date">
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Catatan Tambahan</label>
+            <textarea class="form-control" id="referral-notes" rows="2" placeholder="Catatan tambahan (opsional)"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="app.closeModal('new-referral-modal')">Batal</button>
+        <button class="btn btn-primary" onclick="submitReferral()">
+          <i class="fas fa-save"></i>
+          Simpan Rujukan
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Edit Referral Modal -->
+  <div class="modal-overlay" id="edit-referral-modal">
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3><i class="fas fa-edit"></i> Edit Rujukan</h3>
+        <button class="modal-close" onclick="app.closeModal('edit-referral-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-referral-id">
+        
+        <div class="form-group">
+          <label class="form-label">Keluhan / Alasan Rujukan *</label>
+          <textarea class="form-control" id="edit-complaint" rows="3"></textarea>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Dokter yang Menangani</label>
+            <select class="form-select" id="edit-doctor">
+              <option value="">Pilih dokter</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-select" id="edit-status">
+              <option value="ongoing">Sedang Berlangsung</option>
+              <option value="completed">Selesai</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Diagnosis</label>
+          <textarea class="form-control" id="edit-diagnosis" rows="2" placeholder="Hasil diagnosis..."></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Penanganan</label>
+          <textarea class="form-control" id="edit-treatment" rows="2" placeholder="Tindakan penanganan..."></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Resep Obat</label>
+          <textarea class="form-control" id="edit-prescription" rows="2" placeholder="Resep obat..."></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Catatan Tambahan</label>
+          <textarea class="form-control" id="edit-notes" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="app.closeModal('edit-referral-modal')">Batal</button>
+        <button class="btn btn-primary" onclick="updateReferral()">
+          <i class="fas fa-save"></i>
+          Simpan Perubahan
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- View History Modal -->
+  <div class="modal-overlay" id="history-modal">
+    <div class="modal" style="max-width: 700px;">
+      <div class="modal-header">
+        <h3><i class="fas fa-history"></i> Riwayat Kunjungan Pasien</h3>
+        <button class="modal-close" onclick="app.closeModal('history-modal')">&times;</button>
+      </div>
+      <div class="modal-body" id="history-content">
+        <!-- History will be loaded here -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="app.closeModal('history-modal')">Tutup</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="/js/app.js"></script>
+  <script>
+    let currentUser = null;
+    let referrals = [];
+    let patients = [];
+    let doctors = [];
+    let selectedPatientId = null;
+    let currentFilter = 'all';
+    
+    // Check authentication
+    (async () => {
+      currentUser = await app.checkAuth();
+      if (currentUser) {
+        if (currentUser.role !== 'admin') {
+          window.location.href = '/dashboard';
+          return;
+        }
+        app.updateNavbarUser(currentUser);
+        app.updateUIForRole(currentUser);
+        await loadDoctors();
+        await loadReferrals();
+        
+        // Set default date to today
+        document.getElementById('referral-date').value = new Date().toISOString().split('T')[0];
+      }
+    })();
+    
+    // Load doctors
+    async function loadDoctors() {
+      try {
+        const response = await app.apiRequest('/api/doctors');
+        if (response.success) {
+          doctors = response.data;
+          const selects = ['referral-doctor', 'edit-doctor'];
+          selects.forEach(id => {
+            const select = document.getElementById(id);
+            select.innerHTML = '<option value="">Pilih dokter</option>';
+            doctors.forEach(doc => {
+              select.innerHTML += `<option value="${doc._id}">${doc.name} - ${doc.specialization}</option>`;
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Error loading doctors:', error);
+      }
+    }
+    
+    // Load referrals (visits)
+    async function loadReferrals() {
+      try {
+        const response = await app.apiRequest('/api/visits');
+        if (response.success) {
+          referrals = response.data;
+          renderReferrals();
+        }
+      } catch (error) {
+        app.showToast('Gagal memuat data rujukan', 'error');
+      }
+    }
+    
+    // Render referrals
+    function renderReferrals(data = referrals) {
+      const container = document.getElementById('referrals-list');
+      
+      // Apply filter
+      let filtered = data;
+      if (currentFilter !== 'all') {
+        filtered = data.filter(r => r.status === currentFilter);
+      }
+      
+      // Sort: ongoing first, then by date
+      filtered.sort((a, b) => {
+        if (a.status === 'ongoing' && b.status !== 'ongoing') return -1;
+        if (a.status !== 'ongoing' && b.status === 'ongoing') return 1;
+        return new Date(b.visitDate) - new Date(a.visitDate);
+      });
+      
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-clipboard-list"></i>
+            <h3>Belum ada rujukan</h3>
+            <p>Buat rujukan baru untuk memulai</p>
+          </div>
+        `;
+        return;
+      }
+      
+      container.innerHTML = filtered.map(ref => {
+        const patient = ref.patient || {};
+        const doctor = ref.doctor || {};
+        const initial = patient.name ? patient.name.charAt(0).toUpperCase() : '?';
+        
+        return `
+          <div class="referral-card ${ref.status}">
+            <div class="referral-header">
+              <div class="referral-patient">
+                <div class="referral-avatar">${initial}</div>
+                <div class="referral-info">
+                  <h4>${patient.name || 'Unknown'}</h4>
+                  <p><i class="fas fa-phone"></i> ${patient.phone || '-'} | <i class="fas fa-envelope"></i> ${patient.email || '-'}</p>
+                </div>
+              </div>
+              <span class="status-badge ${ref.status}">
+                ${ref.status === 'ongoing' ? '<i class="fas fa-clock"></i> Sedang Berlangsung' : '<i class="fas fa-check"></i> Selesai'}
+              </span>
+            </div>
+            
+            <div class="referral-meta">
+              <div class="referral-meta-item">
+                <label>Tanggal Kunjungan</label>
+                <span><i class="fas fa-calendar"></i> ${app.formatDate(ref.visitDate)}</span>
+              </div>
+              <div class="referral-meta-item">
+                <label>Dokter</label>
+                <span><i class="fas fa-user-md"></i> ${doctor.name || 'Belum ditentukan'}</span>
+              </div>
+              <div class="referral-meta-item">
+                <label>Spesialisasi</label>
+                <span>${doctor.specialization || '-'}</span>
+              </div>
+              <div class="referral-meta-item">
+                <label>Status Akun</label>
+                <span>${patient.userId ? '<span class="badge badge-success">Terhubung</span>' : '<span class="badge badge-secondary">Belum Terhubung</span>'}</span>
+              </div>
+            </div>
+            
+            <div class="referral-complaint">
+              <label>Keluhan</label>
+              <p>${ref.complaint}</p>
+            </div>
+            
+            ${ref.diagnosis && ref.diagnosis !== '-' ? `
+              <div class="referral-complaint" style="background: rgba(34, 197, 94, 0.1);">
+                <label>Diagnosis & Penanganan</label>
+                <p><strong>Diagnosis:</strong> ${ref.diagnosis}</p>
+                ${ref.treatment && ref.treatment !== '-' ? `<p><strong>Penanganan:</strong> ${ref.treatment}</p>` : ''}
+                ${ref.prescription && ref.prescription !== '-' ? `<p><strong>Resep:</strong> ${ref.prescription}</p>` : ''}
+              </div>
+            ` : ''}
+            
+            <div class="referral-actions">
+              <button class="btn btn-sm btn-primary" onclick="editReferral('${ref._id}')">
+                <i class="fas fa-edit"></i> Edit
+              </button>
+              ${ref.status === 'ongoing' ? `
+                <button class="btn btn-sm btn-success" onclick="completeReferral('${ref._id}')">
+                  <i class="fas fa-check"></i> Tandai Selesai
+                </button>
+              ` : ''}
+              <button class="btn btn-sm btn-info" onclick="viewPatientHistory('${patient._id}')">
+                <i class="fas fa-history"></i> Riwayat
+              </button>
+              <button class="btn btn-sm btn-danger" onclick="deleteReferral('${ref._id}')">
+                <i class="fas fa-trash"></i> Hapus
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    // Filter referrals
+    function filterReferrals(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.filter === filter);
+      });
+      renderReferrals();
+    }
+    
+    // Search functionality
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase();
+      const filtered = referrals.filter(r => 
+        (r.patient?.name || '').toLowerCase().includes(query) ||
+        (r.patient?.phone || '').includes(query)
+      );
+      renderReferrals(filtered);
+    });
+    
+    // Open new referral modal
+    function openNewReferralModal() {
+      selectedPatientId = null;
+      selectedPatientData = null;
+      document.getElementById('patient-search').value = '';
+      document.getElementById('patient-search-results').innerHTML = '';
+      document.getElementById('selected-patient-info').style.display = 'none';
+      document.getElementById('referral-complaint').value = '';
+      document.getElementById('referral-doctor').value = '';
+      document.getElementById('referral-notes').value = '';
+      document.getElementById('referral-date').value = new Date().toISOString().split('T')[0];
+      
+      // Reset complete data form
+      document.getElementById('step-complete-data').style.display = 'none';
+      document.getElementById('step-referral-title').textContent = '2. Detail Rujukan';
+      document.getElementById('complete-dob').value = '';
+      document.getElementById('complete-gender').value = '';
+      document.getElementById('complete-address').value = '';
+      document.getElementById('complete-blood').value = '';
+      document.getElementById('complete-allergies').value = '';
+      
+      app.openModal('new-referral-modal');
+    }
+    
+    // Patient search
+    let searchTimeout;
+    document.getElementById('patient-search').addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      const query = e.target.value.trim();
+      
+      if (query.length < 2) {
+        document.getElementById('patient-search-results').innerHTML = '';
+        return;
+      }
+      
+      searchTimeout = setTimeout(async () => {
+        try {
+          const response = await app.apiRequest(`/api/patients/search?q=${encodeURIComponent(query)}`);
+          if (response.success) {
+            const results = response.data;
+            const container = document.getElementById('patient-search-results');
+            
+            if (results.length === 0) {
+              container.innerHTML = '<p class="text-muted text-center py-2">Tidak ditemukan pasien dengan nama tersebut</p>';
+              return;
+            }
+            
+            container.innerHTML = results.map(p => `
+              <div class="patient-search-result ${selectedPatientId === p._id ? 'selected' : ''}" onclick="selectPatient('${p._id}', '${p.name}')">
+                <strong>${p.name}</strong>
+                <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--gray-500);">
+                  ${p.phone || '-'} | ${p.email || '-'}
+                </p>
+              </div>
+            `).join('');
+          }
+        } catch (error) {
+          console.error('Search error:', error);
+        }
+      }, 300);
+    });
+    
+    // Selected patient data for completing
+    let selectedPatientData = null;
+    
+    // Select patient
+    async function selectPatient(id, name) {
+      selectedPatientId = id;
+      document.getElementById('selected-patient-info').style.display = 'block';
+      document.getElementById('selected-patient-name').textContent = name;
+      
+      // Update selected state
+      document.querySelectorAll('.patient-search-result').forEach(el => {
+        el.classList.remove('selected');
+      });
+      if (event && event.currentTarget) {
+        event.currentTarget.classList.add('selected');
+      }
+      
+      // Update edit patient button link
+      document.getElementById('edit-patient-btn').href = `/patients?action=edit&id=${id}`;
+      
+      // Fetch patient details to check if data is complete
+      try {
+        const response = await app.apiRequest(`/api/patients/${id}`);
+        if (response.success) {
+          selectedPatientData = response.data;
+          
+          // Check if patient data is incomplete
+          const { isComplete, missingFields } = checkPatientDataComplete(selectedPatientData);
+          
+          const completeSection = document.getElementById('step-complete-data');
+          const referralTitle = document.getElementById('step-referral-title');
+          const missingFieldsList = document.getElementById('missing-fields-list');
+          
+          if (!isComplete) {
+            completeSection.style.display = 'block';
+            referralTitle.textContent = '3. Detail Rujukan';
+            
+            // Show missing fields list
+            missingFieldsList.innerHTML = missingFields.map(f => `<li>${f}</li>`).join('');
+            
+            // Pre-fill existing data and highlight missing fields
+            const dobGroup = document.getElementById('complete-dob-group');
+            const genderGroup = document.getElementById('complete-gender-group');
+            const addressGroup = document.getElementById('complete-address-group');
+            const bloodGroup = document.getElementById('complete-blood-group');
+            
+            // Reset all highlights
+            [dobGroup, genderGroup, addressGroup, bloodGroup].forEach(g => {
+              if (g) g.style.background = '';
+            });
+            
+            // Highlight missing fields
+            if (!selectedPatientData.dateOfBirth && dobGroup) {
+              dobGroup.style.background = 'rgba(245, 158, 11, 0.1)';
+              dobGroup.style.padding = '0.5rem';
+              dobGroup.style.borderRadius = 'var(--radius)';
+            }
+            if (!selectedPatientData.gender && genderGroup) {
+              genderGroup.style.background = 'rgba(245, 158, 11, 0.1)';
+              genderGroup.style.padding = '0.5rem';
+              genderGroup.style.borderRadius = 'var(--radius)';
+            }
+            if (!selectedPatientData.address && addressGroup) {
+              addressGroup.style.background = 'rgba(245, 158, 11, 0.1)';
+              addressGroup.style.padding = '0.5rem';
+              addressGroup.style.borderRadius = 'var(--radius)';
+            }
+            if (!selectedPatientData.bloodType && bloodGroup) {
+              bloodGroup.style.background = 'rgba(245, 158, 11, 0.1)';
+              bloodGroup.style.padding = '0.5rem';
+              bloodGroup.style.borderRadius = 'var(--radius)';
+            }
+            
+            // Pre-fill existing data
+            if (selectedPatientData.dateOfBirth) {
+              document.getElementById('complete-dob').value = app.formatDateInput(selectedPatientData.dateOfBirth);
+            }
+            if (selectedPatientData.gender) {
+              document.getElementById('complete-gender').value = selectedPatientData.gender;
+            }
+            if (selectedPatientData.address) {
+              document.getElementById('complete-address').value = selectedPatientData.address;
+            }
+            if (selectedPatientData.bloodType) {
+              document.getElementById('complete-blood').value = selectedPatientData.bloodType;
+            }
+            if (selectedPatientData.allergies) {
+              document.getElementById('complete-allergies').value = selectedPatientData.allergies;
+            }
+          } else {
+            completeSection.style.display = 'none';
+            referralTitle.textContent = '2. Detail Rujukan';
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching patient:', error);
+      }
+    }
+    
+    // Go to add patient page
+    function goToAddPatient() {
+      app.closeModal('new-referral-modal');
+      window.location.href = '/patients?action=add';
+    }
+    
+    // Go to edit patient page
+    function goToEditPatient() {
+      if (selectedPatientId) {
+        app.closeModal('new-referral-modal');
+        window.location.href = `/patients?action=edit&id=${selectedPatientId}`;
+      }
+    }
+    
+    // Check if patient data is complete
+    function checkPatientDataComplete(patient) {
+      const missingFields = [];
+      
+      if (!patient.dateOfBirth) missingFields.push('Tanggal Lahir');
+      if (!patient.gender) missingFields.push('Jenis Kelamin');
+      if (!patient.address || patient.address === '-') missingFields.push('Alamat');
+      if (!patient.bloodType || patient.bloodType === '-') missingFields.push('Golongan Darah');
+      
+      return {
+        isComplete: missingFields.length === 0,
+        missingFields
+      };
+    }
+    
+    // Submit referral
+    async function submitReferral() {
+      const complaint = document.getElementById('referral-complaint').value.trim();
+      const doctorId = document.getElementById('referral-doctor').value;
+      const visitDate = document.getElementById('referral-date').value;
+      const notes = document.getElementById('referral-notes').value.trim();
+      
+      if (!selectedPatientId) {
+        app.showToast('Pilih pasien terlebih dahulu atau buat pasien baru', 'error');
+        return;
+      }
+      
+      if (!complaint) {
+        app.showToast('Keluhan wajib diisi', 'error');
+        return;
+      }
+      
+      if (!doctorId) {
+        app.showToast('Pilih dokter yang menangani', 'error');
+        return;
+      }
+      
+      const patientId = selectedPatientId;
+      
+      try {
+        app.showLoading();
+        
+        // Check if we need to update patient data first
+        const completeSection = document.getElementById('step-complete-data');
+        if (completeSection.style.display !== 'none') {
+          const dob = document.getElementById('complete-dob').value;
+          const gender = document.getElementById('complete-gender').value;
+          const address = document.getElementById('complete-address').value;
+          const bloodType = document.getElementById('complete-blood').value;
+          const allergies = document.getElementById('complete-allergies').value;
+          
+          // Validate required fields
+          const missingRequired = [];
+          if (!dob && !selectedPatientData?.dateOfBirth) missingRequired.push('Tanggal Lahir');
+          if (!gender && !selectedPatientData?.gender) missingRequired.push('Jenis Kelamin');
+          if (!address && !selectedPatientData?.address) missingRequired.push('Alamat');
+          if (!bloodType && !selectedPatientData?.bloodType) missingRequired.push('Golongan Darah');
+          
+          if (missingRequired.length > 0) {
+            app.hideLoading();
+            app.showToast(`Data pasien belum lengkap: ${missingRequired.join(', ')}`, 'error');
+            return;
+          }
+          
+          const patientUpdateData = {};
+          if (dob) patientUpdateData.dateOfBirth = dob;
+          if (gender) patientUpdateData.gender = gender;
+          if (address) patientUpdateData.address = address;
+          if (bloodType) patientUpdateData.bloodType = bloodType;
+          if (allergies) patientUpdateData.allergies = allergies;
+          
+          // Update patient data if there's any
+          if (Object.keys(patientUpdateData).length > 0) {
+            const updateResponse = await app.apiRequest(`/api/patients/${patientId}`, {
+              method: 'PUT',
+              body: JSON.stringify(patientUpdateData)
+            });
+            
+            if (!updateResponse.success) {
+              app.hideLoading();
+              app.showToast('Gagal memperbarui data pasien', 'error');
+              return;
+            }
+          }
+        }
+        
+        // Create visit/referral
+        const response = await app.apiRequest('/api/visits', {
+          method: 'POST',
+          body: JSON.stringify({
+            patientId,
+            doctorId,
+            visitDate: visitDate || new Date().toISOString(),
+            complaint,
+            notes,
+            status: 'ongoing'
+          })
+        });
+        
+        if (response.success) {
+          app.showToast('Rujukan berhasil dibuat', 'success');
+          app.closeModal('new-referral-modal');
+          loadReferrals();
+        } else if (response.missingFields) {
+          app.hideLoading();
+          app.showToast(response.message, 'error');
+        }
+      } catch (error) {
+        app.showToast(error.message || 'Gagal membuat rujukan', 'error');
+      } finally {
+        app.hideLoading();
+      }
+    }
+    
+    // Edit referral
+    function editReferral(id) {
+      const ref = referrals.find(r => r._id === id);
+      if (!ref) return;
+      
+      document.getElementById('edit-referral-id').value = id;
+      document.getElementById('edit-complaint').value = ref.complaint;
+      document.getElementById('edit-doctor').value = ref.doctor?._id || '';
+      document.getElementById('edit-status').value = ref.status;
+      document.getElementById('edit-diagnosis').value = ref.diagnosis !== '-' ? ref.diagnosis : '';
+      document.getElementById('edit-treatment').value = ref.treatment !== '-' ? ref.treatment : '';
+      document.getElementById('edit-prescription').value = ref.prescription !== '-' ? ref.prescription : '';
+      document.getElementById('edit-notes').value = ref.notes || '';
+      
+      app.openModal('edit-referral-modal');
+    }
+    
+    // Update referral
+    async function updateReferral() {
+      const id = document.getElementById('edit-referral-id').value;
+      const data = {
+        complaint: document.getElementById('edit-complaint').value,
+        doctorId: document.getElementById('edit-doctor').value,
+        status: document.getElementById('edit-status').value,
+        diagnosis: document.getElementById('edit-diagnosis').value || '-',
+        treatment: document.getElementById('edit-treatment').value || '-',
+        prescription: document.getElementById('edit-prescription').value || '-',
+        notes: document.getElementById('edit-notes').value
+      };
+      
+      try {
+        app.showLoading();
+        const response = await app.apiRequest(`/api/visits/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(data)
+        });
+        
+        if (response.success) {
+          app.showToast('Rujukan berhasil diupdate', 'success');
+          app.closeModal('edit-referral-modal');
+          loadReferrals();
+        }
+      } catch (error) {
+        app.showToast(error.message, 'error');
+      } finally {
+        app.hideLoading();
+      }
+    }
+    
+    // Complete referral
+    async function completeReferral(id) {
+      const confirmed = await app.showConfirm('Selesaikan Rujukan', 'Tandai rujukan ini sebagai selesai? Pastikan penanganan sudah selesai dilakukan.');
+      if (!confirmed) return;
+      
+      try {
+        app.showLoading();
+        const response = await app.apiRequest(`/api/visits/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ status: 'completed' })
+        });
+        
+        if (response.success) {
+          app.showToast('Rujukan ditandai selesai', 'success');
+          loadReferrals();
+        }
+      } catch (error) {
+        app.showToast(error.message, 'error');
+      } finally {
+        app.hideLoading();
+      }
+    }
+    
+    // Delete referral
+    async function deleteReferral(id) {
+      const confirmed = await app.showConfirm('Hapus Rujukan', 'Apakah Anda yakin ingin menghapus rujukan ini? Data yang dihapus tidak dapat dikembalikan.');
+      if (!confirmed) return;
+      
+      try {
+        app.showLoading();
+        const response = await app.apiRequest(`/api/visits/${id}`, {
+          method: 'DELETE'
+        });
+        
+        if (response.success) {
+          app.showToast('Rujukan berhasil dihapus', 'success');
+          loadReferrals();
+        }
+      } catch (error) {
+        app.showToast(error.message, 'error');
+      } finally {
+        app.hideLoading();
+      }
+    }
+    
+    // View patient history
+    async function viewPatientHistory(patientId) {
+      if (!patientId) {
+        app.showToast('ID pasien tidak valid', 'error');
+        return;
+      }
+      
+      try {
+        app.showLoading();
+        const response = await app.apiRequest(`/api/visits/patient/${patientId}`);
+        
+        if (response.success) {
+          const visits = response.data;
+          const container = document.getElementById('history-content');
+          
+          if (visits.length === 0) {
+            container.innerHTML = '<p class="text-center text-muted">Belum ada riwayat kunjungan</p>';
+          } else {
+            container.innerHTML = visits.map(v => `
+              <div style="padding: 1rem; background: var(--gray-50); border-radius: var(--radius); margin-bottom: 0.75rem; border-left: 3px solid ${v.status === 'completed' ? 'var(--success)' : 'var(--warning)'};">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                  <strong>${app.formatDate(v.visitDate)}</strong>
+                  <span class="badge ${v.status === 'completed' ? 'badge-success' : 'badge-warning'}">${v.status === 'completed' ? 'Selesai' : 'Berlangsung'}</span>
+                </div>
+                <p style="margin: 0.5rem 0;"><strong>Dokter:</strong> ${v.doctor?.name || '-'}</p>
+                <p style="margin: 0.5rem 0;"><strong>Keluhan:</strong> ${v.complaint}</p>
+                ${v.diagnosis && v.diagnosis !== '-' ? `<p style="margin: 0.5rem 0;"><strong>Diagnosis:</strong> ${v.diagnosis}</p>` : ''}
+                ${v.treatment && v.treatment !== '-' ? `<p style="margin: 0.5rem 0;"><strong>Penanganan:</strong> ${v.treatment}</p>` : ''}
+                ${v.prescription && v.prescription !== '-' ? `<p style="margin: 0.5rem 0;"><strong>Resep:</strong> ${v.prescription}</p>` : ''}
+              </div>
+            `).join('');
+          }
+          
+          app.openModal('history-modal');
+        }
+      } catch (error) {
+        app.showToast(error.message, 'error');
+      } finally {
+        app.hideLoading();
+      }
+    }
+  </script>
+</body>
+</html>

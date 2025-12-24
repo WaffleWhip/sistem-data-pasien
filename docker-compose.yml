@@ -1,0 +1,119 @@
+services:
+  # MongoDB for Auth Service (User Database)
+  mongodb-auth:
+    image: mongo:7.0
+    container_name: healthcure-mongodb-auth
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: auth_db
+    volumes:
+      - mongodb_auth_data:/data/db
+      - ./docker/mongo-init/init-auth.js:/docker-entrypoint-initdb.d/init-auth.js:ro
+    networks:
+      - healthcure-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/auth_db --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # MongoDB for Main Service (Project Database)
+  mongodb-main:
+    image: mongo:7.0
+    container_name: healthcure-mongodb-main
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: main_db
+    volumes:
+      - mongodb_main_data:/data/db
+    networks:
+      - healthcure-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/main_db --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: healthcure-auth-service
+    restart: always
+    environment:
+      PORT: 3001
+      MONGODB_URI: mongodb://mongodb-auth:27017/auth_db
+      JWT_SECRET: ${JWT_SECRET:-healthcure-super-secret-jwt-key-2024}
+      JWT_EXPIRES_IN: 24h
+      NODE_ENV: production
+    depends_on:
+      mongodb-auth:
+        condition: service_healthy
+    networks:
+      - healthcure-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: sh -c "node create-admin.js && node src/index.js"
+
+  # Main Service
+  main-service:
+    build:
+      context: ./main-service
+      dockerfile: Dockerfile
+    container_name: healthcure-main-service
+    restart: always
+    environment:
+      PORT: 3002
+      MONGODB_URI: mongodb://mongodb-main:27017/main_db
+      JWT_SECRET: ${JWT_SECRET:-healthcure-super-secret-jwt-key-2024}
+      NODE_ENV: production
+    depends_on:
+      mongodb-main:
+        condition: service_healthy
+    networks:
+      - healthcure-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend Gateway Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: healthcure-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:3001
+      MAIN_SERVICE_URL: http://main-service:3002
+      NODE_ENV: production
+    depends_on:
+      - auth-service
+      - main-service
+    networks:
+      - healthcure-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  healthcure-network:
+    driver: bridge
+    name: healthcure-network
+
+volumes:
+  mongodb_auth_data:
+    name: healthcure-mongodb-auth-data
+  mongodb_main_data:
+    name: healthcure-mongodb-main-data

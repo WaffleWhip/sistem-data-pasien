@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Dokter - HealthCure</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="container" style="justify-content: space-between;">
+      <a href="/dashboard" class="navbar-brand">
+        <img src="/logo.svg" alt="HealthCure" style="width: 40px; height: 40px;">
+        <span class="brand-text"><span class="brand-health">Health</span><span class="brand-cure">Cure</span></span>
+      </a>
+      
+      <div class="navbar-user">
+        <!-- Notification Bell -->
+        <div class="notification-bell user-only" onclick="app.toggleNotificationDropdown()">
+          <div class="bell-icon">
+            <i class="fas fa-bell"></i>
+          </div>
+          <span class="badge-count" id="notif-badge" style="display: none;">0</span>
+          <div class="notification-dropdown" id="notif-dropdown">
+            <div class="notification-header">
+              <span>Notifikasi</span>
+            </div>
+            <div class="notification-list" id="notif-dropdown-list">
+              <div class="notification-empty">
+                <i class="fas fa-bell-slash"></i>
+                <p>Tidak ada notifikasi</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="user-info">
+          <div class="user-name" id="navbar-user-name">Loading...</div>
+          <div class="user-role" id="navbar-user-role">-</div>
+        </div>
+        <div class="user-avatar" id="navbar-user-avatar">-</div>
+      </div>
+    </div>
+  </nav>
+  
+  <!-- Main Content -->
+  <div class="layout">
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <a href="/dashboard" class="sidebar-link">
+          <i class="fas fa-tachometer-alt"></i>
+          Dashboard
+        </a>
+        
+        <!-- Admin Menu -->
+        <div class="admin-only hidden">
+          <a href="/referrals" class="sidebar-link">
+            <i class="fas fa-clipboard-list"></i>
+            Rujukan Pasien
+          </a>
+          
+          <div class="sidebar-section">
+            <h6 class="sidebar-section-title">Data</h6>
+          </div>
+          <a href="/patients" class="sidebar-link">
+            <i class="fas fa-users"></i>
+            Data Pasien
+          </a>
+          <a href="/doctors" class="sidebar-link active">
+            <i class="fas fa-user-md"></i>
+            Data Dokter
+          </a>
+        </div>
+        
+        <!-- User Menu -->
+        <div class="user-only hidden">
+          <div class="sidebar-section">
+            <h6 class="sidebar-section-title">Kunjungan</h6>
+          </div>
+          <a href="/my-visits" class="sidebar-link">
+            <i class="fas fa-calendar-check"></i>
+            Kunjungan Saya
+          </a>
+          <a href="/doctors-list" class="sidebar-link">
+            <i class="fas fa-user-md"></i>
+            Daftar Dokter
+          </a>
+        </div>
+        
+        <div class="sidebar-section">
+          <h6 class="sidebar-section-title">Akun</h6>
+        </div>
+        <a href="/profile" class="sidebar-link">
+          <i class="fas fa-user-circle"></i>
+          Profil Saya
+        </a>
+        
+        <div class="sidebar-logout">
+          <a href="#" class="sidebar-link" onclick="app.logout(); return false;">
+            <i class="fas fa-sign-out-alt"></i>
+            Log Out
+          </a>
+        </div>
+      </nav>
+    </aside>
+    
+    <main class="main-content">
+      <div class="page-header">
+        <h1 class="page-title">Data Dokter</h1>
+        <p class="page-subtitle">Kelola data dokter klinik</p>
+      </div>
+      
+      <!-- Data Table -->
+      <div class="table-container">
+        <div class="table-header">
+          <h3 class="table-title"><i class="fas fa-user-md"></i> Daftar Dokter</h3>
+          <div class="table-actions">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input type="text" id="search-input" placeholder="Cari dokter...">
+            </div>
+            <button class="btn btn-gold admin-only" onclick="openAddModal()">
+              <i class="fas fa-plus"></i>
+              Tambah Dokter
+            </button>
+          </div>
+        </div>
+        
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>NIP</th>
+                <th>Nama</th>
+                <th>Spesialisasi</th>
+                <th>Email</th>
+                <th>No. Telepon</th>
+                <th>Jadwal</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="doctors-table">
+              <tr>
+                <td colspan="7" class="text-center text-muted">Memuat data...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+  
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="doctor-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">Tambah Dokter</h3>
+        <button class="modal-close" onclick="app.closeModal('doctor-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="doctor-form">
+          <input type="hidden" id="doctor-id">
+          
+          <div class="form-group">
+            <label class="form-label">NIP *</label>
+            <input type="text" class="form-control" id="doctor-nip" placeholder="Masukkan NIP" required>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Nama Lengkap *</label>
+            <input type="text" class="form-control" id="doctor-name" placeholder="Masukkan nama lengkap" required>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Spesialisasi *</label>
+            <input type="text" class="form-control" id="doctor-specialization" placeholder="Contoh: Dokter Umum, Spesialis Anak" required>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Email *</label>
+              <input type="email" class="form-control" id="doctor-email" placeholder="Masukkan email" required>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">No. Telepon *</label>
+              <input type="tel" class="form-control" id="doctor-phone" placeholder="Contoh: 081234567890" required>
+            </div>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Jadwal Praktik</label>
+              <input type="text" class="form-control" id="doctor-schedule" placeholder="Contoh: Senin - Jumat, 08:00 - 16:00">
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Ruangan</label>
+              <input type="text" class="form-control" id="doctor-room" placeholder="Contoh: Ruang 101">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="app.closeModal('doctor-modal')">Batal</button>
+        <button class="btn btn-gold" onclick="saveDoctor()">
+          <i class="fas fa-save"></i>
+          Simpan
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- View Modal -->
+  <div class="modal-overlay" id="view-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Detail Dokter</h3>
+        <button class="modal-close" onclick="app.closeModal('view-modal')">&times;</button>
+      </div>
+      <div class="modal-body" id="view-content">
+        <!-- Content will be loaded dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="app.closeModal('view-modal')">Tutup</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="/js/app.js"></script>
+  <script>
+    let currentUser = null;
+    let doctors = [];
+    
+    // Check authentication
+    (async () => {
+      currentUser = await app.checkAuth();
+      if (currentUser) {
+        app.updateNavbarUser(currentUser);
+        app.updateUIForRole(currentUser);
+        loadDoctors();
+        
+        // Load notifications for non-admin
+        if (currentUser.role !== 'admin') {
+          app.loadNotifications();
+        }
+      }
+    })();
+    
+    // Load doctors
+    async function loadDoctors() {
+      try {
+        const response = await app.apiRequest('/api/doctors');
+        if (response.success) {
+          doctors = response.data;
+          renderTable();
+        }
+      } catch (error) {
+        app.showToast('Gagal memuat data dokter', 'error');
+      }
+    }
+    
+    // Render table
+    function renderTable(data = doctors) {
+      const tbody = document.getElementById('doctors-table');
+      
+      if (data.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7">
+              <div class="empty-state">
+                <i class="fas fa-user-md"></i>
+                <h3>Belum ada data dokter</h3>
+                <p>Tambahkan dokter baru untuk memulai</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
+      tbody.innerHTML = data.map(doctor => `
+        <tr>
+          <td><span class="badge badge-gold">${doctor.nip}</span></td>
+          <td><strong>${doctor.name}</strong></td>
+          <td><span class="badge badge-primary">${doctor.specialization}</span></td>
+          <td>${doctor.email}</td>
+          <td>${doctor.phone}</td>
+          <td>${doctor.schedule || '-'}</td>
+          <td>
+            <div class="action-btns">
+              <button class="btn btn-sm btn-primary btn-icon" onclick="viewDoctor('${doctor._id}')" title="Lihat">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="btn btn-sm btn-success btn-icon admin-only" onclick="editDoctor('${doctor._id}')" title="Edit">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn btn-sm btn-danger btn-icon admin-only" onclick="deleteDoctor('${doctor._id}')" title="Hapus">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+      
+      app.updateUIForRole(currentUser);
+    }
+    
+    // Search functionality
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase();
+      const filtered = doctors.filter(d => 
+        d.name.toLowerCase().includes(query) || 
+        d.nip.includes(query) ||
+        d.specialization.toLowerCase().includes(query)
+      );
+      renderTable(filtered);
+    });
+    
+    // Open add modal
+    function openAddModal() {
+      document.getElementById('modal-title').textContent = 'Tambah Dokter';
+      document.getElementById('doctor-form').reset();
+      document.getElementById('doctor-id').value = '';
+      app.openModal('doctor-modal');
+    }
+    
+    // View doctor
+    async function viewDoctor(id) {
+      try {
+        const response = await app.apiRequest(`/api/doctors/${id}`);
+        if (response.success) {
+          const d = response.data;
+          document.getElementById('view-content').innerHTML = `
+            <div style="display: grid; gap: 1rem;">
+              <div style="text-align: center; padding: 1.5rem; background: var(--gradient-primary); border-radius: var(--radius-lg); margin-bottom: 1rem;">
+                <div style="width: 80px; height: 80px; background: var(--gradient-gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 2rem; color: var(--primary-dark);">
+                  <i class="fas fa-user-md"></i>
+                </div>
+                <h2 style="color: white; margin-bottom: 0.25rem;">${d.name}</h2>
+                <span class="badge badge-gold">${d.specialization}</span>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                  <label class="form-label">NIP</label>
+                  <p><strong>${d.nip}</strong></p>
+                </div>
+                <div>
+                  <label class="form-label">Ruangan</label>
+                  <p><strong>${d.room || '-'}</strong></p>
+                </div>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                  <label class="form-label">Email</label>
+                  <p><i class="fas fa-envelope text-accent"></i> ${d.email}</p>
+                </div>
+                <div>
+                  <label class="form-label">No. Telepon</label>
+                  <p><i class="fas fa-phone text-success"></i> ${d.phone}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label class="form-label">Jadwal Praktik</label>
+                <p><i class="fas fa-clock text-warning"></i> ${d.schedule || 'Belum ditentukan'}</p>
+              </div>
+            </div>
+          `;
+          app.openModal('view-modal');
+        }
+      } catch (error) {
+        app.showToast('Gagal memuat detail dokter', 'error');
+      }
+    }
+    
+    // Edit doctor
+    async function editDoctor(id) {
+      try {
+        const response = await app.apiRequest(`/api/doctors/${id}`);
+        if (response.success) {
+          const d = response.data;
+          document.getElementById('modal-title').textContent = 'Edit Dokter';
+          document.getElementById('doctor-id').value = d._id;
+          document.getElementById('doctor-nip').value = d.nip;
+          document.getElementById('doctor-name').value = d.name;
+          document.getElementById('doctor-specialization').value = d.specialization;
+          document.getElementById('doctor-email').value = d.email;
+          document.getElementById('doctor-phone').value = d.phone;
+          document.getElementById('doctor-schedule').value = d.schedule || '';
+          document.getElementById('doctor-room').value = d.room || '';
+          app.openModal('doctor-modal');
+        }
+      } catch (error) {
+        app.showToast('Gagal memuat data dokter', 'error');
+      }
+    }
+    
+    // Save doctor
+    async function saveDoctor() {
+      const id = document.getElementById('doctor-id').value;
+      const data = {
+        nip: document.getElementById('doctor-nip').value,
+        name: document.getElementById('doctor-name').value,
+        specialization: document.getElementById('doctor-specialization').value,
+        email: document.getElementById('doctor-email').value,
+        phone: document.getElementById('doctor-phone').value,
+        schedule: document.getElementById('doctor-schedule').value || 'Senin - Jumat, 08:00 - 16:00',
+        room: document.getElementById('doctor-room').value || '-'
+      };
+      
+      try {
+        app.showLoading();
+        const response = await app.apiRequest(`/api/doctors${id ? '/' + id : ''}`, {
+          method: id ? 'PUT' : 'POST',
+          body: JSON.stringify(data)
+        });
+        
+        if (response.success) {
+          app.showToast(id ? 'Data berhasil diupdate' : 'Dokter berhasil ditambahkan', 'success');
+          app.closeModal('doctor-modal');
+          loadDoctors();
+        }
+      } catch (error) {
+        app.showToast(error.message, 'error');
+      } finally {
+        app.hideLoading();
+      }
+    }
+    
+    // Delete doctor
+    async function deleteDoctor(id) {
+      const confirmed = await app.showConfirm('Hapus Dokter', 'Apakah Anda yakin ingin menghapus dokter ini? Data yang dihapus tidak dapat dikembalikan.');
+      if (!confirmed) return;
+      
+      try {
+        app.showLoading();
+        const response = await app.apiRequest(`/api/doctors/${id}`, {
+          method: 'DELETE'
+        });
+        
+        if (response.success) {
+          app.showToast('Dokter berhasil dihapus', 'success');
+          loadDoctors();
+        }
+      } catch (error) {
+        app.showToast(error.message, 'error');
+      } finally {
+        app.hideLoading();
+      }
+    }
+  </script>
+</body>
+</html>
+

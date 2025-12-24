@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kunjungan Saya - HealthCure</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="container" style="justify-content: space-between;">
+      <a href="/dashboard" class="navbar-brand">
+        <img src="/logo.svg" alt="HealthCure" style="width: 40px; height: 40px;">
+        <span class="brand-text"><span class="brand-health">Health</span><span class="brand-cure">Cure</span></span>
+      </a>
+      
+      <div class="navbar-user">
+        <!-- Notification Bell -->
+        <div class="notification-bell user-only" onclick="app.toggleNotificationDropdown()">
+          <div class="bell-icon">
+            <i class="fas fa-bell"></i>
+          </div>
+          <span class="badge-count" id="notif-badge" style="display: none;">0</span>
+          <div class="notification-dropdown" id="notif-dropdown">
+            <div class="notification-header">
+              <span>Notifikasi</span>
+            </div>
+            <div class="notification-list" id="notif-dropdown-list">
+              <div class="notification-empty">
+                <i class="fas fa-bell-slash"></i>
+                <p>Tidak ada notifikasi</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="user-info">
+          <div class="user-name" id="navbar-user-name">Loading...</div>
+          <div class="user-role" id="navbar-user-role">-</div>
+        </div>
+        <div class="user-avatar" id="navbar-user-avatar">-</div>
+      </div>
+    </div>
+  </nav>
+  
+  <!-- Main Content -->
+  <div class="layout">
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <a href="/dashboard" class="sidebar-link">
+          <i class="fas fa-tachometer-alt"></i>
+          Dashboard
+        </a>
+        
+        <!-- User Menu -->
+        <div class="sidebar-section">
+          <h6 class="sidebar-section-title">Kunjungan</h6>
+        </div>
+        <a href="/my-visits" class="sidebar-link active">
+          <i class="fas fa-calendar-check"></i>
+          Kunjungan Saya
+        </a>
+        <a href="/doctors-list" class="sidebar-link">
+          <i class="fas fa-user-md"></i>
+          Daftar Dokter
+        </a>
+        
+        <div class="sidebar-section">
+          <h6 class="sidebar-section-title">Akun</h6>
+        </div>
+        <a href="/profile" class="sidebar-link">
+          <i class="fas fa-user-circle"></i>
+          Profil Saya
+        </a>
+        
+        <div class="sidebar-logout">
+          <a href="#" class="sidebar-link" onclick="app.logout(); return false;">
+            <i class="fas fa-sign-out-alt"></i>
+            Log Out
+          </a>
+        </div>
+      </nav>
+    </aside>
+    
+    <main class="main-content">
+      <div class="page-header">
+        <h1 class="page-title">Kunjungan Saya</h1>
+        <p class="page-subtitle">Lihat kunjungan yang sedang berlangsung dan riwayat kunjungan</p>
+      </div>
+      
+      <!-- Kunjungan Berlangsung -->
+      <div id="ongoing-visit-container" class="hidden mb-4">
+        <div class="card" style="border: 2px solid var(--warning); background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(245, 158, 11, 0.1) 100%);">
+          <div class="card-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white;">
+            <h3><i class="fas fa-spinner fa-spin"></i> Kunjungan Sedang Berlangsung</h3>
+          </div>
+          <div class="card-body" id="ongoing-visit-content">
+            <!-- Will be populated by JS -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- Riwayat Kunjungan -->
+      <div class="card">
+        <div class="card-header">
+          <h3><i class="fas fa-history"></i> Riwayat Kunjungan</h3>
+        </div>
+        <div class="card-body" id="visit-history">
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            Memuat data kunjungan...
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  
+  <script src="/js/app.js"></script>
+  <script>
+    let currentUser = null;
+    
+    (async () => {
+      currentUser = await app.checkAuth();
+      if (currentUser) {
+        app.updateNavbarUser(currentUser);
+        app.updateUIForRole(currentUser);
+        
+        // Redirect admin to dashboard
+        if (currentUser.role === 'admin') {
+          window.location.href = '/dashboard';
+          return;
+        }
+        
+        app.loadNotifications();
+        loadVisits();
+      }
+    })();
+    
+    async function loadVisits() {
+      try {
+        const response = await app.apiRequest('/api/visits/my-visits');
+        
+        if (response.success) {
+          const visits = response.data;
+          
+          // Separate ongoing and completed visits
+          const ongoing = visits.find(v => v.status === 'ongoing');
+          const history = visits.filter(v => v.status === 'completed');
+          
+          // Render ongoing visit
+          if (ongoing) {
+            document.getElementById('ongoing-visit-container').classList.remove('hidden');
+            document.getElementById('ongoing-visit-content').innerHTML = renderVisitCard(ongoing, true);
+          }
+          
+          // Render history
+          const historyContainer = document.getElementById('visit-history');
+          if (history.length > 0) {
+            historyContainer.innerHTML = history.map(v => renderVisitCard(v, false)).join('');
+          } else {
+            historyContainer.innerHTML = `
+              <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                Belum ada riwayat kunjungan.
+              </div>
+            `;
+          }
+        }
+      } catch (error) {
+        console.error('Error loading visits:', error);
+        document.getElementById('visit-history').innerHTML = `
+          <div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle"></i>
+            Gagal memuat data kunjungan.
+          </div>
+        `;
+      }
+    }
+    
+    function renderVisitCard(visit, isOngoing) {
+      const date = new Date(visit.visitDate).toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+      
+      const statusBadge = isOngoing 
+        ? '<span class="badge badge-warning"><i class="fas fa-clock"></i> Sedang Berlangsung</span>'
+        : '<span class="badge badge-success"><i class="fas fa-check"></i> Selesai</span>';
+      
+      return `
+        <div class="visit-card" style="background: var(--gray-50); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; ${isOngoing ? 'border-left: 4px solid var(--warning);' : 'border-left: 4px solid var(--success);'}">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+            <div style="flex: 1;">
+              <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                ${statusBadge}
+                <span class="text-muted" style="font-size: 0.875rem;"><i class="fas fa-calendar"></i> ${date}</span>
+              </div>
+              <h4 style="margin-bottom: 0.5rem;">
+                <i class="fas fa-user-md text-accent"></i>
+                ${visit.doctor?.name || 'Dokter tidak tersedia'}
+              </h4>
+              <p class="text-muted" style="font-size: 0.875rem; margin-bottom: 0.5rem;">
+                <i class="fas fa-stethoscope"></i> ${visit.doctor?.specialization || '-'}
+              </p>
+              
+              <div style="margin-top: 1rem; padding: 0.75rem; background: white; border-radius: var(--radius-sm);">
+                <strong style="font-size: 0.875rem;"><i class="fas fa-comment-medical"></i> Keluhan:</strong>
+                <p style="margin-top: 0.25rem; font-size: 0.875rem;">${visit.complaint || '-'}</p>
+              </div>
+              
+              ${visit.diagnosis && visit.diagnosis !== '-' ? `
+                <div style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(34, 197, 94, 0.1); border-radius: var(--radius-sm);">
+                  <strong style="font-size: 0.875rem;"><i class="fas fa-clipboard-list"></i> Diagnosis:</strong>
+                  <p style="margin-top: 0.25rem; font-size: 0.875rem;">${visit.diagnosis}</p>
+                </div>
+              ` : ''}
+              
+              ${visit.treatment && visit.treatment !== '-' ? `
+                <div style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(59, 130, 246, 0.1); border-radius: var(--radius-sm);">
+                  <strong style="font-size: 0.875rem;"><i class="fas fa-hand-holding-medical"></i> Penanganan:</strong>
+                  <p style="margin-top: 0.25rem; font-size: 0.875rem;">${visit.treatment}</p>
+                </div>
+              ` : ''}
+              
+              ${visit.prescription && visit.prescription !== '-' ? `
+                <div style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(245, 158, 11, 0.1); border-radius: var(--radius-sm);">
+                  <strong style="font-size: 0.875rem;"><i class="fas fa-pills"></i> Resep Obat:</strong>
+                  <p style="margin-top: 0.25rem; font-size: 0.875rem;">${visit.prescription}</p>
+                </div>
+              ` : ''}
+              
+              ${visit.notes ? `
+                <div style="margin-top: 0.5rem; padding: 0.75rem; background: white; border-radius: var(--radius-sm);">
+                  <strong style="font-size: 0.875rem;"><i class="fas fa-notes-medical"></i> Catatan:</strong>
+                  <p style="margin-top: 0.25rem; font-size: 0.875rem;">${visit.notes}</p>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>
