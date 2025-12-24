@@ -1,7 +1,7 @@
 services:
   # MongoDB for Auth Service (User Database)
   mongodb-auth:
-    image: mongo:7.0
+    image: mongo:4.4
     container_name: healthcure-mongodb-auth
     restart: always
     environment:
@@ -19,7 +19,7 @@ services:
 
   # MongoDB for Main Service (Project Database)
   mongodb-main:
-    image: mongo:7.0
+    image: mongo:4.4
     container_name: healthcure-mongodb-main
     restart: always
     environment:
