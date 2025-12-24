@@ -54,6 +54,75 @@ function Write-Warn {
     Write-Host "⚠ $Message" -ForegroundColor Yellow
 }
 
+# Function untuk retry dengan loop sampai berhasil
+function Invoke-WithRetry {
+    param(
+        [scriptblock]$ScriptBlock,
+        [string]$Description,
+        [int]$MaxRetries = 30,
+        [int]$DelaySeconds = 5
+    )
+    
+    $attempt = 1
+    
+    while ($attempt -le $MaxRetries) {
+        try {
+            Write-Host "  [Attempt $attempt/$MaxRetries] $Description..." -ForegroundColor Gray
+            & $ScriptBlock
+            Write-Success "$Description"
+            return $true
+        } catch {
+            if ($attempt -eq $MaxRetries) {
+                Show-Error "Failed after $MaxRetries attempts: $($_.Exception.Message)" `
+                    "Check Azure subscription status, quota limits, or try again later`nError details: $($_.Exception.Message)"
+            }
+            
+            $timeLeft = ($MaxRetries - $attempt) * $DelaySeconds
+            Write-Host "  ⏳ Waiting $DelaySeconds seconds before retry... ($timeLeft seconds left)" -ForegroundColor DarkGray
+            Start-Sleep -Seconds $DelaySeconds
+            $attempt++
+        }
+    }
+}
+
+# Function untuk check resource status dengan polling
+function Wait-ForResource {
+    param(
+        [string]$ResourceType,
+        [string]$ResourceName,
+        [string]$ResourceGroup,
+        [scriptblock]$ConditionCheck,
+        [int]$MaxWaitSeconds = 300
+    )
+    
+    $startTime = Get-Date
+    $attempt = 1
+    
+    Write-Info "⏳ Waiting for $ResourceType '$ResourceName' to be ready..."
+    
+    while ((Get-Date) -lt $startTime.AddSeconds($MaxWaitSeconds)) {
+        try {
+            $isReady = & $ConditionCheck
+            if ($isReady) {
+                Write-Success "$ResourceType is ready"
+                return $true
+            }
+            
+            $elapsed = (Get-Date) - $startTime
+            Write-Host "  [${elapsed:mm\:ss}] Still waiting... (timeout in $($MaxWaitSeconds - [int]$elapsed.TotalSeconds)s)" -ForegroundColor DarkGray
+            Start-Sleep -Seconds 5
+            $attempt++
+        } catch {
+            $elapsed = (Get-Date) - $startTime
+            Write-Host "  [${elapsed:mm\:ss}] Checking... (timeout in $($MaxWaitSeconds - [int]$elapsed.TotalSeconds)s)" -ForegroundColor DarkGray
+            Start-Sleep -Seconds 5
+        }
+    }
+    
+    Show-Error "Timeout waiting for $ResourceType after $MaxWaitSeconds seconds" `
+        "Resource may be stuck. Check status with:`naz $ResourceType show --name $ResourceName --resource-group $ResourceGroup"
+}
+
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host " HealthCure - Azure Container Apps Deployment" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
