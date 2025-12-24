@@ -391,7 +391,7 @@ Invoke-WithRetry -Description "Retrieve ACR credentials" -MaxRetries 5 {
 # Step 8: Deploy Container Apps
 Write-Host "[8/8] Deploying Container Apps..." -ForegroundColor Yellow
 
-# Helper function to create or update container app with error handling
+# Helper function to deploy container app
 function Deploy-ContainerApp {
     param(
         [string]$Name,
@@ -405,65 +405,49 @@ function Deploy-ContainerApp {
     Write-Info "Deploying $Name..."
     
     try {
-        # Build env-vars parameter
-        $EnvVarsArray = @()
+        # Build env-vars string
+        $EnvVarsStr = ""
         foreach ($key in $EnvVars.Keys) {
-            $EnvVarsArray += "$key=$($EnvVars[$key])"
+            $EnvVarsStr += "`"$key=$($EnvVars[$key])`" "
         }
         
-        # Try to update first
-        $UpdateCmd = @(
-            "az", "containerapp", "update",
-            "--name", $Name,
-            "--resource-group", $ResourceGroup,
-            "--image", $Image
-        )
+        # Check if app exists
+        $AppExists = az containerapp show --name $Name --resource-group $ResourceGroup 2>$null
         
-        if ($EnvVarsArray.Count -gt 0) {
-            $UpdateCmd += "--env-vars"
-            $UpdateCmd += $EnvVarsArray
-        }
-        
-        $UpdateResult = & $UpdateCmd 2>&1
-        
-        if ($LASTEXITCODE -ne 0) {
-            # Create new if update failed
-            $CreateCmd = @(
-                "az", "containerapp", "create",
-                "--name", $Name,
-                "--resource-group", $ResourceGroup,
-                "--environment", "healthcure-env",
-                "--image", $Image,
-                "--target-port", $TargetPort,
-                "--ingress", $Ingress,
-                "--cpu", "0.25",
-                "--memory", "0.5Gi"
-            )
+        if ($AppExists) {
+            # Update existing
+            if ($EnvVarsStr) {
+                Invoke-Expression "az containerapp update --name $Name --resource-group $ResourceGroup --image $Image --env-vars $EnvVarsStr" | Out-Null
+            } else {
+                az containerapp update --name $Name --resource-group $ResourceGroup --image $Image | Out-Null
+            }
+        } else {
+            # Create new
+            $CreateCmd = "az containerapp create " + `
+                "--name $Name " + `
+                "--resource-group $ResourceGroup " + `
+                "--environment healthcure-env " + `
+                "--image $Image " + `
+                "--target-port $TargetPort " + `
+                "--ingress $Ingress " + `
+                "--cpu 0.25 " + `
+                "--memory 0.5Gi"
             
             if ($Name -eq "healthcure-mongodb") {
-                $CreateCmd[-6] = "0.5"
-                $CreateCmd[-4] = "1.0Gi"
+                $CreateCmd = $CreateCmd.Replace("--cpu 0.25", "--cpu 0.5").Replace("--memory 0.5Gi", "--memory 1.0Gi")
             }
             
             if ($AcrServer -and $Image -notmatch "mongo") {
-                $CreateCmd += "--registry-server"
-                $CreateCmd += $AcrServer
-                $CreateCmd += "--registry-username"
-                $CreateCmd += $AcrUsername
-                $CreateCmd += "--registry-password"
-                $CreateCmd += $AcrPassword
+                $CreateCmd += " --registry-server $AcrServer " + `
+                    "--registry-username $AcrUsername " + `
+                    "--registry-password $AcrPassword"
             }
             
-            if ($EnvVarsArray.Count -gt 0) {
-                $CreateCmd += "--env-vars"
-                $CreateCmd += $EnvVarsArray
+            if ($EnvVarsStr) {
+                $CreateCmd += " --env-vars $EnvVarsStr"
             }
             
-            & $CreateCmd | Out-Null
-            
-            if ($LASTEXITCODE -ne 0) {
-                throw "Failed to create $Name"
-            }
+            Invoke-Expression $CreateCmd | Out-Null
         }
         
         Write-Success "$Name deployed"
