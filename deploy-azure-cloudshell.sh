@@ -40,6 +40,8 @@ az acr create \
   --location $REGION
 
 echo "ACR created: $ACR_SERVER"
+echo "Waiting for ACR to be fully ready..."
+sleep 30
 
 # Step 2: Build Frontend in ACR
 echo "[2/5] Building Frontend image in ACR..."
