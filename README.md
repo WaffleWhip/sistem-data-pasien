@@ -203,29 +203,29 @@ docker compose restart mongodb-auth
 - View logs: `az containerapp logs show --name healthcure-auth --resource-group healthcure-rg --tail 50`
 - Tunggu 2-3 menit untuk services fully initialize
 
-**4. Network timeout (di Azure)**
-- Frontend tidak bisa akses auth-service melalui internal DNS
-- Pastikan deployment using correct container names di docker-compose.yml
-- Check environment variables: `az containerapp show --name healthcure-frontend --resource-group healthcure-rg --query properties.template.containers[].env -o json`
+**4. Network Timeout on Azure**
+- Frontend unable to access auth-service through internal DNS
+- Ensure correct container names are used in docker-compose.yml
+- Verify environment variables: `az containerapp show --name healthcure-frontend --resource-group healthcure-rg --query properties.template.containers[].env -o json`
 
 ---
 
-## Struktur Project
+## Project Structure
 
 ```
 sistem-data-pasien/
-├── auth-service/        # JWT authentication service
-├── main-service/        # Patient/Doctor CRUD & Visit management
-├── frontend/            # Web interface & API gateway
-├── docker/              # MongoDB initialization scripts
-├── deploy/              # Azure deployment scripts & config
-│   ├── deploy-to-azure.ps1   # Automated deployment (Windows)
-│   ├── deploy-to-azure.sh    # Automated deployment (Linux/Mac/WSL)
-│   ├── vm-config.env.example # Configuration template
-│   └── vm-config.env         # Configuration (local only, .gitignore)
-├── docker-compose.yml   # Local development
-├── README.md            # Quick start & overview
-└── DEPLOYMENT_GUIDE.md  # Azure deployment guide
+├── auth-service/              # JWT Authentication Service
+├── main-service/              # Patient and Doctor Management
+├── frontend/                  # Web Interface and API Gateway
+├── docker/                    # MongoDB Initialization Scripts
+├── deploy/                    # Azure Deployment Scripts
+│   ├── deploy-to-azure.ps1    # PowerShell Deployment Script
+│   ├── deploy-to-azure.sh     # Bash Deployment Script
+│   └── vm-config.env          # Configuration File (Local Only)
+├── docker-compose.yml         # Local Development Compose File
+├── README.md                  # Project Documentation
+├── DEPLOYMENT_GUIDE_VM.md     # Azure VM Deployment Guide
+└── REQUIREMENT_CHECKLIST.md   # Requirements Verification
 ```
 
 ---
@@ -289,10 +289,11 @@ DELETE /api/visits/:id           - Delete (JWT, Admin)
 
 ---
 
-## Dokumentasi Lengkap
+## Complete Documentation
 
-- **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** - Panduan deploy ke Azure Container Apps
+- **[DEPLOYMENT_GUIDE_VM.md](DEPLOYMENT_GUIDE_VM.md)** - Azure VM Deployment Procedures
+- **[REQUIREMENT_CHECKLIST.md](REQUIREMENT_CHECKLIST.md)** - Requirement Verification Checklist
 
 ---
 
-Status: Production Ready
+**Status:** Production Ready ✓
