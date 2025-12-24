@@ -1,113 +1,111 @@
-# HealthCure - VM Deployment Guide (Final)
+# HealthCure - Azure VM Deployment Guide
 
 ## Prerequisites
 
-✅ Azure VM dengan:
+Required Azure VM configuration:
 - Ubuntu Server 24.04 LTS
 - 2 vCPU, 4GB RAM (Standard B2ats v2)
 - Public IP address
-- SSH port (22) open
-- Admin credentials (username & password)
+- SSH port (22) accessible
+- Admin credentials (username and password)
 
 ---
 
 ## Deployment Steps
 
-### Step 1: Prepare on Your Laptop
+### Step 1: Prepare Project Files
 
 ```powershell
-# Navigate to project
+# Navigate to project directory
 cd D:\Project
 
-# Zip the project
+# Create deployment package
 Compress-Archive -Path sistem-data-pasien -DestinationPath healthcure.zip
 
-# Verify zip created
+# Verify package
 ls healthcure.zip
 ```
 
-**Result:** `C:\Users\YOUR_USER\Project\healthcure.zip`
+**Output:** `C:\Users\{username}\Project\healthcure.zip`
 
 ---
 
-### Step 2: Upload to VM
+### Step 2: Upload to Azure VM
 
 ```powershell
-# Set variables
+# Configure VM details
 $VM_IP = "YOUR_VM_PUBLIC_IP"
-$VM_USER = "waf"
+$VM_USER = "your_username"
 
-# Upload zip file
-scp healthcure.zip ${VM_USER}@${VM_IP}:/home/waf/
-
-# Upload setup script
-scp deploy/vm-setup-final.sh ${VM_USER}@${VM_IP}:/home/waf/
+# Upload deployment package
+scp healthcure.zip ${VM_USER}@${VM_IP}:/home/${VM_USER}/
 ```
 
-**Expected output:** No errors = success ✅
+**Expected output:** Upload completes without errors
 
 ---
 
-### Step 3: SSH to VM
+### Step 3: Connect to Azure VM via SSH
 
 ```powershell
-# Connect to VM
-ssh waf@YOUR_VM_PUBLIC_IP
+# Establish SSH connection
+ssh ${VM_USER}@YOUR_VM_PUBLIC_IP
 
-# You'll be prompted for password (enter VM password)
+# You will be prompted for password
 ```
 
 ---
 
-### Step 4: Run Setup Script (Inside VM)
+### Step 4: Deploy Services on VM
+
+Execute deployment script:
 
 ```bash
 # Make script executable
-chmod +x /home/waf/vm-setup-final.sh
+chmod +x deploy-to-azure.sh
 
-# Run setup script
-bash /home/waf/vm-setup-final.sh
+# Run automated deployment
+./deploy-to-azure.sh
 ```
 
-**What it does:**
+**Deployment Actions:**
 - Updates system packages
-- Installs Docker & Docker Compose
-- Sets up permissions
+- Installs Docker and Docker Compose
 - Extracts project files
-- Starts all services (MongoDB, Auth, Main, Frontend)
+- Starts all services (Auth, Main, Frontend, MongoDB instances)
 
 **Duration:** 2-3 minutes
 
 ---
 
-### Step 5: Verify Services
+### Step 5: Verify Service Deployment
 
 ```bash
-# Check if services running
-docker-compose ps
+# Check running services
+docker compose ps
 
 # Expected output:
-# NAME                 IMAGE              STATUS
-# healthcure-auth-service     UP
-# healthcure-main-service     UP
-# healthcure-frontend         UP
-# healthcure-mongodb-auth     UP
-# healthcure-mongodb-main     UP
+# NAME                    IMAGE                 STATUS
+# healthcure-auth-service               UP
+# healthcure-main-service               UP
+# healthcure-frontend                   UP
+# healthcure-mongodb-auth               UP
+# healthcure-mongodb-main               UP
 
-# View logs
-docker-compose logs -f
+# View service logs
+docker compose logs -f
 ```
 
 ---
 
 ### Step 6: Access Application
 
-**Open browser:**
+Open web browser and navigate to:
 ```
 http://YOUR_VM_PUBLIC_IP:3000
 ```
 
-**Login with:**
+**Default Admin Credentials:**
 ```
 Email: admin@healthcure.com
 Password: admin123
@@ -117,110 +115,122 @@ Password: admin123
 
 ## Troubleshooting
 
-### Services not starting?
+### Services Not Starting
+
+Check service logs and restart:
 ```bash
-# Check logs
-docker-compose logs
+# View service logs
+docker compose logs
 
-# Restart services
-docker-compose restart
+# Restart all services
+docker compose restart
 
-# Full reset
-docker-compose down
-docker-compose up -d
+# Complete reset
+docker compose down
+docker compose up -d
 ```
 
-### Port already in use?
+### Port Already in Use
+
+If port 3000 is occupied:
 ```bash
-# Check what's using port 3000
+# Identify process using port 3000
 sudo lsof -i :3000
 
-# Change port in docker-compose.yml
+# Modify docker-compose.yml to use different port:
 # ports:
-#   - "8000:3000"  # Changed from 3000:3000
+#   - "8000:3000"  # Use 8000 instead of 3000
 ```
 
-### Permission denied?
+### Permission Denied Errors
+
+If permission errors occur:
 ```bash
-# Re-run setup
+# Add user to docker group
 sudo usermod -aG docker $USER
 newgrp docker
 
-# Logout and login again
+# Logout and reconnect
 exit
-ssh waf@YOUR_VM_PUBLIC_IP
+ssh ${VM_USER}@YOUR_VM_PUBLIC_IP
 ```
 
 ---
 
-## Cleanup (if needed)
+## Cleanup and Teardown
+
+To remove application (if needed):
 
 ```bash
 # Stop all services
-docker-compose down
+docker compose down
 
 # Remove all containers and volumes
-docker-compose down -v
+docker compose down -v
 
-# Remove project
+# Remove project directory
 rm -rf ~/sistem-data-pasien
 ```
 
 ---
 
-## Useful Commands
+## Common Docker Compose Commands
+
+Essential commands for managing services:
 
 ```bash
-# Check service status
-docker-compose ps
+# Check all running services
+docker compose ps
 
-# View logs (real-time)
-docker-compose logs -f
+# View real-time logs
+docker compose logs -f
 
 # View logs for specific service
-docker-compose logs -f auth-service
+docker compose logs -f auth-service
 
-# Stop services
-docker-compose stop
+# Stop all services
+docker compose stop
 
-# Start services
-docker-compose start
+# Start all services
+docker compose start
 
-# Restart services
-docker-compose restart
+# Restart all services
+docker compose restart
 
 # View resource usage
 docker stats
 
-# Connect to container
+# Execute command in container
 docker exec -it healthcure-auth-service bash
 ```
 
 ---
 
-## Architecture
+## System Architecture
 
 ```
 Azure VM (Ubuntu 24.04)
 ├── Docker Engine
 └── Docker Compose (5 containers)
-    ├── Frontend (Port 3000)
+    ├── Frontend Application (Port 3000)
     ├── Auth Service (Port 3001)
     ├── Main Service (Port 3002)
-    ├── MongoDB (Auth DB)
-    └── MongoDB (Main DB)
+    ├── MongoDB - Authentication Database
+    └── MongoDB - Project Database
 ```
 
 ---
 
-## Support
+## Support and Assistance
 
-Jika ada masalah:
-1. Check logs: `docker-compose logs`
-2. Verify connectivity: `ping vm_ip`
-3. Check SSH: `ssh waf@vm_ip`
-4. Restart all: `docker-compose restart`
+If issues occur during deployment:
+
+1. Review service logs: `docker compose logs`
+2. Verify network connectivity: `ping vm_ip`
+3. Check SSH connection: `ssh ${VM_USER}@vm_ip`
+4. Restart all services: `docker compose restart`
+5. Consult troubleshooting section above
 
 ---
 
-**Deployment complete!** 🎉
+**Deployment Complete**
