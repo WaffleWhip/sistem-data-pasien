@@ -91,13 +91,13 @@ def main():
     config_file = script_dir / "vm-config.env"
 
     # Load configuration
-    print("[1/5] Loading configuration...")
+    print("[1/6] Loading configuration...")
     config = load_config(config_file)
     print(f"  ✓ Target: {config.get('VM_USERNAME')}@{config.get('VM_PUBLIC_IP')}")
     print("")
 
     # Prepare connection
-    print("[2/5] Connecting to Azure VM...")
+    print("[2/6] Connecting to Azure VM...")
     try:
         device = {
             'device_type': 'linux',
@@ -123,11 +123,11 @@ def main():
 
     try:
         # Create deployment script
-        print("[3/5] Preparing deployment script...")
+        print("[3/6] Preparing deployment script...")
         deploy_script = get_deployment_script()
         
         # Upload and execute
-        print("[4/5] Deploying application...")
+        print("[4/6] Deploying application...")
         
         # Send deployment commands
         output = connection.send_command(f"cat > /tmp/deploy.sh << 'EOF'\n{deploy_script}EOF", read_timeout=5)
@@ -135,9 +135,14 @@ def main():
         print(output)
         
         print("")
-        print("[5/5] Verifying deployment...")
+        print("[5/6] Verifying deployment...")
         output = connection.send_command("docker compose -f ~/sistem-data-pasien/docker-compose.yml ps", read_timeout=10)
         print(output)
+        
+        print("")
+        print("[6/6] Cleaning up...")
+        connection.send_command("rm -f /tmp/deploy.sh", read_timeout=5)
+        print("  ✓ Temporary files removed")
         
         print("")
         print("=" * 50)

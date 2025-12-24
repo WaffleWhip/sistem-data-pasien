@@ -1,20 +1,35 @@
 #!/bin/bash
-# HealthCure - Deployment Launcher (Netmiko)
-# Auto-installs Python and dependencies, then runs deployment
+# HealthCure - Deployment Launcher
+# Auto-installs Python, runs deployment, then cleans up
 
 set -e
-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PYTHON_INSTALLED=false
+
+trap cleanup EXIT
+
+cleanup() {
+    if [ "$PYTHON_INSTALLED" = true ]; then
+        echo ""
+        echo "Cleaning up Python..."
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get remove -y python3 python3-pip > /dev/null 2>&1 || true
+        elif command -v yum &> /dev/null; then
+            sudo yum remove -y python3 python3-pip > /dev/null 2>&1 || true
+        fi
+        echo "✓ Cleanup complete"
+    fi
+}
 
 echo "=========================================="
 echo "HealthCure - Automated Deployment"
 echo "=========================================="
 echo ""
 
-# Check and install Python
-echo "[1/4] Checking Python..."
+echo "[1/5] Checking Python..."
 if ! command -v python3 &> /dev/null; then
     echo "  Installing Python 3..."
+    PYTHON_INSTALLED=true
     
     if command -v apt-get &> /dev/null; then
         sudo apt-get update > /dev/null 2>&1
@@ -23,33 +38,25 @@ if ! command -v python3 &> /dev/null; then
         sudo yum install -y python3 python3-pip > /dev/null 2>&1
     elif command -v brew &> /dev/null; then
         brew install python3 > /dev/null 2>&1
-    elif command -v choco &> /dev/null; then
-        choco install python3 -y > /dev/null 2>&1
     else
         echo "Error: Cannot auto-install Python"
-        echo "Please install Python 3 manually from https://www.python.org"
         exit 1
     fi
 fi
 
 PYTHON=$(which python3 || which python)
-echo "  ✓ Python: $PYTHON"
+echo "  ✓ Python ready"
 echo ""
 
-# Install dependencies
-echo "[2/4] Installing dependencies..."
-if ! $PYTHON -c "import netmiko" 2>/dev/null; then
-    echo "  Installing netmiko and paramiko..."
-    $PYTHON -m pip install -q netmiko paramiko --upgrade
-fi
+echo "[2/5] Installing dependencies..."
+$PYTHON -m pip install -q netmiko paramiko --upgrade 2>/dev/null || true
 echo "  ✓ Dependencies ready"
 echo ""
 
-# Run deployment
-echo "[3/4] Starting deployment..."
+echo "[3/5] Starting deployment..."
 echo ""
 $PYTHON "$SCRIPT_DIR/deploy.py"
 
 echo ""
-echo "[4/4] Deployment complete!"
-
+echo "[4/5] Deployment complete!"
+echo "[5/5] Cleaning up..."
