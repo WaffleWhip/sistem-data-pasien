@@ -25,7 +25,7 @@ newgrp docker
 
 # 4. Extract dan navigate
 echo "[4/5] Extracting project files..."
-cd /home/waf
+cd /home/azureuser
 unzip -q healthcure.zip
 cd sistem-data-pasien
 
