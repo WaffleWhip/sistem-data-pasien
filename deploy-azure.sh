@@ -32,7 +32,7 @@ az webapp create \
   --resource-group $RESOURCE_GROUP \
   --plan $PLAN_NAME \
   --name healthcure-frontend \
-  --runtime "NODE|18-lts"
+  --runtime "NODE:22-lts"
 
 # Step 3: Deploy Auth Service
 echo "[3/4] Deploying Auth Service..."
@@ -40,7 +40,7 @@ az webapp create \
   --resource-group $RESOURCE_GROUP \
   --plan $PLAN_NAME \
   --name healthcure-auth \
-  --runtime "NODE|18-lts"
+  --runtime "NODE:22-lts"
 
 # Step 4: Deploy Main Service
 echo "[4/4] Deploying Main Service..."
@@ -48,7 +48,7 @@ az webapp create \
   --resource-group $RESOURCE_GROUP \
   --plan $PLAN_NAME \
   --name healthcure-main \
-  --runtime "NODE|18-lts"
+  --runtime "NODE:22-lts"
 
 echo ""
 echo "================================================"
