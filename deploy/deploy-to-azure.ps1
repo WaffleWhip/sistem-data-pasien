@@ -49,13 +49,21 @@ if (-not $plinkPath -or -not $pscpPath) {
                 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
             }
             
-            # Download PuTTY installer (portable version)
-            $puttyUrl = "https://the.earth.li/~sgtatham/putty/latest/w64/putty.exe"
+            # Download PuTTY installer (use reliable mirror)
+            $puttyUrl = "https://tartarus.uberspace.de/putty/latest/w64/putty.exe"
             $puttyPath = "$tempDir\putty.exe"
             
             Write-Host "Downloading PuTTY..." -ForegroundColor Gray
             (New-Object System.Net.ServicePointManager).SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-            Invoke-WebRequest -Uri $puttyUrl -OutFile $puttyPath -ErrorAction Stop
+            
+            try {
+                Invoke-WebRequest -Uri $puttyUrl -OutFile $puttyPath -ErrorAction Stop
+            } catch {
+                # Fallback to alternative URL
+                Write-Host "Primary download failed, trying alternative source..." -ForegroundColor Gray
+                $puttyUrl = "https://the.earth.li/~sgtatham/putty/latest/w64/putty.exe"
+                Invoke-WebRequest -Uri $puttyUrl -OutFile $puttyPath -ErrorAction Stop
+            }
             
             # Create PuTTY directory
             if (-not (Test-Path $puttyInstallPath)) {
@@ -69,14 +77,22 @@ if (-not $plinkPath -or -not $pscpPath) {
             # Download additional tools
             $tools = @("plink.exe", "pscp.exe")
             foreach ($tool in $tools) {
-                $toolUrl = "https://the.earth.li/~sgtatham/putty/latest/w64/$tool"
+                $toolUrl = "https://tartarus.uberspace.de/putty/latest/w64/$tool"
                 $toolPath = "$tempDir\$tool"
                 try {
                     Invoke-WebRequest -Uri $toolUrl -OutFile $toolPath -ErrorAction Stop
                     Copy-Item $toolPath -Destination "$puttyInstallPath\$tool" -Force
                     Write-Host "Downloaded: $tool" -ForegroundColor Gray
                 } catch {
-                    Write-Host "Note: $tool may already be included" -ForegroundColor Gray
+                    # Fallback to alternative URL
+                    $toolUrl = "https://the.earth.li/~sgtatham/putty/latest/w64/$tool"
+                    try {
+                        Invoke-WebRequest -Uri $toolUrl -OutFile $toolPath -ErrorAction Stop
+                        Copy-Item $toolPath -Destination "$puttyInstallPath\$tool" -Force
+                        Write-Host "Downloaded: $tool" -ForegroundColor Gray
+                    } catch {
+                        Write-Host "Warning: Could not download $tool" -ForegroundColor Yellow
+                    }
                 }
             }
             
