@@ -8,15 +8,29 @@ Sistem manajemen data pasien berbasis web dengan arsitektur microservices. Memun
 - Docker & Docker Compose
 - Browser modern
 
-### Jalankan Aplikasi
+### Jalankan Lokal
 
 ```bash
+git clone https://github.com/WaffleWhip/sistem-data-pasien.git
+cd sistem-data-pasien
 docker compose up -d
 ```
 
-Tunggu ~30 detik hingga semua services siap, lalu akses:
-- Frontend: http://localhost:3000
-- Default Admin: admin@healthcure.com / admin123
+Tunggu ~30 detik, lalu akses: **http://localhost:3000**
+
+**Admin Login:** `admin@healthcure.com` / `admin123`
+
+### Deploy ke Azure Container Apps
+
+```powershell
+# Windows PowerShell
+.\deploy\deploy-azure.ps1
+
+# Linux/Mac/Cloud Shell
+./deploy/deploy-azure.sh
+```
+
+> 📖 Panduan lengkap: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 
 ---
 
@@ -104,77 +118,23 @@ Akses Menu "Kunjungan Saya"
 
 ---
 
-## Cara Deploy
+## Arsitektur
 
-### Local (Docker)
-
-```bash
-# Start
-docker compose up -d
-
-# Stop
-docker compose down
-
-# Rebuild setelah ada perubahan
-docker compose up -d --build
-
-# Lihat logs
-docker compose logs -f [service]
 ```
-
-### Deploy ke Azure (Automated Script)
-
-Kami menyediakan script otomatis untuk deploy ke Azure Web App for Containers.
-
-**Prerequisites:**
-1. Akun Azure (Azure for Students supported)
-2. Akses ke [Azure Cloud Shell](https://shell.azure.com) (Bash)
-
-**Langkah-langkah:**
-
-1. Buka Azure Cloud Shell (Bash).
-2. Clone repository ini:
-   ```bash
-   git clone https://github.com/WaffleWhip/sistem-data-pasien.git
-   cd sistem-data-pasien
-   ```
-3. Jalankan script deployment:
-   ```bash
-   bash deploy-to-azure.sh
-   ```
-4. Script akan otomatis:
-   - Mencari region yang valid (default: Indonesia Central).
-   - Membuat Resource Group & Container Registry.
-   - Build image docker di cloud.
-   - Membuat App Service Plan & Web App.
-   - Memberikan URL aplikasi yang sudah jadi.
-
-**Masalah Umum: Provider Masih "Registering"**
-
-Jika Anda melihat error bahwa `Microsoft.ContainerRegistry` atau `Microsoft.Web` sedang dalam status "Registering", jalankan perintah ini di Cloud Shell untuk memantau statusnya hingga berubah menjadi "Registered":
-
-```bash
-while true; do
-  acr_status=$(az provider show -n Microsoft.ContainerRegistry --query "registrationState" -o tsv)
-  web_status=$(az provider show -n Microsoft.Web --query "registrationState" -o tsv)
-  echo "ACR: $acr_status | Web: $web_status"
-  
-  if [ "$acr_status" == "Registered" ] && [ "$web_status" == "Registered" ]; then
-    echo "✅ Semua provider sudah terdaftar! Silakan jalankan deploy script lagi."
-    break
-  fi
-  sleep 10
-done
-```
-
-Tunggu hingga script di atas berhenti dan menampilkan pesan sukses, lalu coba deploy lagi.
-
-### Environment Variables
-
-```env
-JWT_SECRET=<your-secure-random-key>
-NODE_ENV=production
-MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/<database>
+┌─────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Browser   │────▶│   Frontend   │────▶│ Auth Service │
+│             │     │   (Gateway)  │     │   Port 3001  │
+└─────────────┘     │   Port 3000  │     └──────┬───────┘
+                    └──────┬───────┘            │
+                           │              ┌─────▼─────┐
+                           │              │  MongoDB  │
+                           │              │ (auth_db) │
+                    ┌──────▼───────┐      └───────────┘
+                    │ Main Service │
+                    │   Port 3002  │      ┌───────────┐
+                    └──────┬───────┘      │  MongoDB  │
+                           └─────────────▶│ (main_db) │
+                                          └───────────┘
 ```
 
 ---
@@ -190,20 +150,20 @@ MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/<database>
 
 ---
 
-## Struktur File
+## Struktur Project
 
 ```
 sistem-data-pasien/
-├── auth-service/        - JWT authentication
-├── main-service/        - Patient/Doctor CRUD & Visit management
-├── frontend/            - Web interface & API gateway
-├── docker/              - MongoDB initialization scripts
-├── docker-compose.yml   - Container orchestration
-├── README.md            - Ini (penggunaan & deploy)
-├── ARCHITECTURE.md      - Cara kerja & komponen detail
-├── QUICK_START.md       - Quick start guide
-├── .env.example         - Environment template
-└── .gitignore          - Git exclusions
+├── auth-service/        # JWT authentication service
+├── main-service/        # Patient/Doctor CRUD & Visit management
+├── frontend/            # Web interface & API gateway
+├── docker/              # MongoDB initialization scripts
+├── deploy/              # Azure deployment scripts
+│   ├── deploy-azure.ps1   # Windows PowerShell
+│   └── deploy-azure.sh    # Bash/Linux/Mac
+├── docker-compose.yml   # Local development
+├── README.md            # Quick start & overview
+└── DEPLOYMENT_GUIDE.md  # Azure deployment guide
 ```
 
 ---
@@ -269,12 +229,7 @@ DELETE /api/visits/:id           - Delete (JWT, Admin)
 
 ## Dokumentasi Lengkap
 
-Untuk memahami cara kerja sistem secara detail, lihat ARCHITECTURE.md yang mencakup:
-- Arsitektur sistem & flow data
-- Daftar komponen & fungsinya
-- Model data & relationships
-- Alur autentikasi
-- Cara kerja setiap fitur
+- **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** - Panduan deploy ke Azure Container Apps
 
 ---
 
