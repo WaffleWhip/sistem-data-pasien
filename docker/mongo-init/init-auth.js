@@ -16,7 +16,7 @@ db.users.insertOne({
   createdAt: new Date()
 });
 
-print("✅ Admin user created successfully!");
+print("Admin user created successfully!");
 print("Email: admin@healthcure.com");
 print("Password: admin123");
 
