@@ -1,5 +1,6 @@
 # HealthCure - Azure Container Apps Deployment (Windows PowerShell)
 # Build lokal lalu push ke Azure Container Registry
+# With dependency checking and installation prompts
 
 param(
     [string]$ResourceGroup = "healthcure-rg",
@@ -13,6 +14,78 @@ Write-Host "================================================" -ForegroundColor C
 Write-Host " HealthCure - Azure Container Apps Deployment" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
+
+# Function to check if command exists
+function Test-CommandExists {
+    param([string]$Command)
+    $null = Get-Command $Command -ErrorAction SilentlyContinue
+    return $?
+}
+
+# Function to check dependencies
+function Check-Dependencies {
+    Write-Host "[0/8] Checking dependencies..." -ForegroundColor Yellow
+    Write-Host ""
+    
+    $MissingTools = @()
+    
+    # Check Docker
+    if (Test-CommandExists docker) {
+        Write-Host "✓ Docker found" -ForegroundColor Green
+        $DockerVersion = docker --version
+        Write-Host "  $DockerVersion" -ForegroundColor Gray
+    } else {
+        Write-Host "✗ Docker NOT found" -ForegroundColor Red
+        $MissingTools += "Docker"
+    }
+    
+    # Check Azure CLI
+    if (Test-CommandExists az) {
+        Write-Host "✓ Azure CLI found" -ForegroundColor Green
+        $AzVersion = az --version | Select-Object -First 1
+        Write-Host "  $AzVersion" -ForegroundColor Gray
+    } else {
+        Write-Host "✗ Azure CLI NOT found" -ForegroundColor Red
+        $MissingTools += "Azure CLI"
+    }
+    
+    Write-Host ""
+    
+    if ($MissingTools.Count -gt 0) {
+        Write-Host "Missing tools: $($MissingTools -join ', ')" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "Installation links:" -ForegroundColor Yellow
+        Write-Host "  • Docker Desktop: https://www.docker.com/products/docker-desktop" -ForegroundColor Cyan
+        Write-Host "  • Azure CLI:      https://aka.ms/installazurecliwindows" -ForegroundColor Cyan
+        Write-Host ""
+        
+        $Install = Read-Host "Install missing tools now? (y/n)"
+        
+        if ($Install -eq 'y' -or $Install -eq 'Y') {
+            if ("Docker" -in $MissingTools) {
+                Write-Host "Opening Docker Desktop download page..." -ForegroundColor Yellow
+                Start-Process "https://www.docker.com/products/docker-desktop"
+            }
+            if ("Azure CLI" -in $MissingTools) {
+                Write-Host "Opening Azure CLI download page..." -ForegroundColor Yellow
+                Start-Process "https://aka.ms/installazurecliwindows"
+            }
+            Write-Host ""
+            Write-Host "Please install the tools and run this script again." -ForegroundColor Yellow
+            exit 1
+        } else {
+            Write-Host "Cannot continue without required tools." -ForegroundColor Red
+            exit 1
+        }
+    }
+    
+    Write-Host "All dependencies OK! ✓" -ForegroundColor Green
+    Write-Host ""
+}
+
+# Run dependency check
+Check-Dependencies
+
 Write-Host "Resource Group : $ResourceGroup"
 Write-Host "Location       : $Location"
 Write-Host "ACR Name       : $AcrName"

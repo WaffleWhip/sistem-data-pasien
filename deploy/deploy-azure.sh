@@ -2,6 +2,7 @@
 
 # HealthCure - Azure Container Apps Deployment (Bash/Linux/Mac/Cloud Shell)
 # Build lokal lalu push ke Azure Container Registry
+# With dependency checking and installation prompts
 
 set -e
 
@@ -14,6 +15,67 @@ echo "================================================"
 echo " HealthCure - Azure Container Apps Deployment"
 echo "================================================"
 echo ""
+
+# Function to check if command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Function to check dependencies
+check_dependencies() {
+    echo "[0/8] Checking dependencies..."
+    echo ""
+    
+    MISSING=()
+    
+    # Check Docker
+    if command_exists docker; then
+        echo "✓ Docker found"
+        docker --version | sed 's/^/  /'
+    else
+        echo "✗ Docker NOT found"
+        MISSING+=("Docker")
+    fi
+    
+    # Check Azure CLI
+    if command_exists az; then
+        echo "✓ Azure CLI found"
+        az --version 2>/dev/null | head -1 | sed 's/^/  /'
+    else
+        echo "✗ Azure CLI NOT found"
+        MISSING+=("Azure CLI")
+    fi
+    
+    echo ""
+    
+    if [ ${#MISSING[@]} -gt 0 ]; then
+        echo "Missing tools: ${MISSING[*]}"
+        echo ""
+        echo "Installation:"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            echo "  Using Homebrew:"
+            echo "  brew install azure-cli docker"
+            echo ""
+            echo "  Or download from:"
+        fi
+        echo "  • Docker:    https://www.docker.com/products/docker-desktop"
+        echo "  • Azure CLI: https://learn.microsoft.com/cli/azure/install-azure-cli"
+        echo ""
+        read -p "Continue anyway? (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Exiting..."
+            exit 1
+        fi
+    fi
+    
+    echo "✓ All required tools OK!"
+    echo ""
+}
+
+# Run dependency check
+check_dependencies
+
 echo "Resource Group : $RESOURCE_GROUP"
 echo "Location       : $LOCATION"
 echo "ACR Name       : $ACR_NAME"
