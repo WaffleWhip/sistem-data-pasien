@@ -1,118 +1,129 @@
 #!/bin/bash
 
-# HealthCure - Full Azure Deployment (Student Account)
-# Deploy: App Services + Azure Database for MySQL
+# HealthCure - Azure Container Apps Deployment
+# Deploy Docker containers + MongoDB to Azure Container Apps
 
 set -e
 
 RESOURCE_GROUP="healthcure-rg"
-PLAN_NAME="healthcure-plan"
-MYSQL_SERVER="healthcure$(date +%s | tail -c 6)"
-MYSQL_USER="healthcure"
-MYSQL_PASS="Pass@123456789"
 REGION="eastasia"
+ACR_NAME="healthcure6546788"
+CONTAINER_ENV="healthcure-env"
+ACR_SERVER="${ACR_NAME}.azurecr.io"
 
 echo "================================================"
-echo "HealthCure - Full Azure Deployment"
+echo "HealthCure - Azure Container Apps Deployment"
 echo "================================================"
-echo "Resource Group: $RESOURCE_GROUP"
 echo "Region: $REGION"
+echo "Resource Group: $RESOURCE_GROUP"
+echo "ACR: $ACR_NAME"
 echo ""
 
-# Step 1: Create MySQL Database Server
-echo "[1/5] Creating Azure Database for MySQL..."
-az mysql flexible-server create \
+# Step 1: Create Container Apps Environment
+echo "[1/4] Creating Container Apps Environment..."
+az containerapp env create \
+  --name $CONTAINER_ENV \
   --resource-group $RESOURCE_GROUP \
-  --name $MYSQL_SERVER \
   --location $REGION \
-  --admin-user $MYSQL_USER \
-  --admin-password $MYSQL_PASS \
-  --sku-name Standard_B1s \
-  --tier Burstable
+  2>/dev/null || echo "Environment already exists"
 
-echo "MySQL Server: $MYSQL_SERVER"
+sleep 10
 
-# Step 2: Create databases
-echo "[2/5] Creating databases..."
-az mysql flexible-server db create \
+# Get ACR credentials
+echo "[2/4] Getting ACR credentials..."
+ACR_USERNAME=$(az acr credential show --name $ACR_NAME --query username -o tsv)
+ACR_PASSWORD=$(az acr credential show --name $ACR_NAME --query 'passwords[0].value' -o tsv)
+
+# Step 2: Deploy MongoDB Container
+echo "[3/4] Deploying MongoDB..."
+az containerapp create \
+  --name healthcure-mongodb \
   --resource-group $RESOURCE_GROUP \
-  --server-name $MYSQL_SERVER \
-  --database-name auth_db
+  --environment $CONTAINER_ENV \
+  --image mongo:4.4 \
+  --target-port 27017 \
+  --ingress internal \
+  2>/dev/null || echo "MongoDB already exists"
 
-az mysql flexible-server db create \
-  --resource-group $RESOURCE_GROUP \
-  --server-name $MYSQL_SERVER \
-  --database-name main_db
+sleep 10
 
-# Step 3: Create App Service Plan
-echo "[3/5] Creating App Service Plan..."
-az appservice plan create \
-  --name $PLAN_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --sku B1 \
-  --is-linux \
-  --location $REGION
-
-# Step 4: Deploy Web Apps
-echo "[4/5] Deploying Web Applications..."
+# Step 3: Deploy Frontend Container
+echo "[4/4] Deploying Services..."
 
 # Frontend
-az webapp create \
-  --resource-group $RESOURCE_GROUP \
-  --plan $PLAN_NAME \
-  --name healthcure-frontend \
-  --runtime "NODE:22-lts"
-
-az webapp config appsettings set \
+az containerapp create \
   --name healthcure-frontend \
   --resource-group $RESOURCE_GROUP \
-  --settings AUTH_SERVICE_URL="https://healthcure-auth.azurewebsites.net" MAIN_SERVICE_URL="https://healthcure-main.azurewebsites.net" NODE_ENV="production"
+  --environment $CONTAINER_ENV \
+  --image ${ACR_SERVER}/healthcure-frontend:latest \
+  --target-port 3000 \
+  --ingress external \
+  --registry-server $ACR_SERVER \
+  --registry-username $ACR_USERNAME \
+  --registry-password $ACR_PASSWORD \
+  --env-vars AUTH_SERVICE_URL="http://healthcure-auth:3001" MAIN_SERVICE_URL="http://healthcure-main:3002" \
+  2>/dev/null || az containerapp update \
+  --name healthcure-frontend \
+  --resource-group $RESOURCE_GROUP \
+  --image ${ACR_SERVER}/healthcure-frontend:latest
 
 # Auth Service
-az webapp create \
-  --resource-group $RESOURCE_GROUP \
-  --plan $PLAN_NAME \
-  --name healthcure-auth \
-  --runtime "NODE:22-lts"
-
-az webapp config appsettings set \
+az containerapp create \
   --name healthcure-auth \
   --resource-group $RESOURCE_GROUP \
-  --settings DATABASE_URL="mysql://${MYSQL_USER}:${MYSQL_PASS}@${MYSQL_SERVER}.mysql.database.azure.com:3306/auth_db" NODE_ENV="production" JWT_SECRET="your-secret-key-change-this"
+  --environment $CONTAINER_ENV \
+  --image ${ACR_SERVER}/healthcure-auth-service:latest \
+  --target-port 3001 \
+  --ingress internal \
+  --registry-server $ACR_SERVER \
+  --registry-username $ACR_USERNAME \
+  --registry-password $ACR_PASSWORD \
+  --env-vars MONGODB_URI="mongodb://healthcure-mongodb:27017/auth_db" NODE_ENV="production" JWT_SECRET="your-secret-key-change-this" \
+  2>/dev/null || az containerapp update \
+  --name healthcure-auth \
+  --resource-group $RESOURCE_GROUP \
+  --image ${ACR_SERVER}/healthcure-auth-service:latest
 
 # Main Service
-az webapp create \
-  --resource-group $RESOURCE_GROUP \
-  --plan $PLAN_NAME \
+az containerapp create \
   --name healthcure-main \
-  --runtime "NODE:22-lts"
+  --resource-group $RESOURCE_GROUP \
+  --environment $CONTAINER_ENV \
+  --image ${ACR_SERVER}/healthcure-main-service:latest \
+  --target-port 3002 \
+  --ingress internal \
+  --registry-server $ACR_SERVER \
+  --registry-username $ACR_USERNAME \
+  --registry-password $ACR_PASSWORD \
+  --env-vars MONGODB_URI="mongodb://healthcure-mongodb:27017/main_db" NODE_ENV="production" JWT_SECRET="your-secret-key-change-this" \
+  2>/dev/null || az containerapp update \
+  --name healthcure-main \
+  --resource-group $RESOURCE_GROUP \
+  --image ${ACR_SERVER}/healthcure-main-service:latest
 
-az webapp config appsettings set \
-  --name healthcure-main \
-  --resource-group $RESOURCE_GROUP \
-  --settings DATABASE_URL="mysql://${MYSQL_USER}:${MYSQL_PASS}@${MYSQL_SERVER}.mysql.database.azure.com:3306/main_db" NODE_ENV="production" JWT_SECRET="your-secret-key-change-this"
+sleep 5
+
+# Get Frontend URL
+FRONTEND_URL=$(az containerapp show --name healthcure-frontend --resource-group $RESOURCE_GROUP --query 'properties.configuration.ingress.fqdn' -o tsv 2>/dev/null || echo "Generating...")
 
 echo ""
 echo "================================================"
-echo "Full Azure Deployment Complete!"
+echo "Azure Deployment Complete!"
 echo "================================================"
 echo ""
-echo "Resources:"
-echo "- MySQL Server: ${MYSQL_SERVER}.mysql.database.azure.com"
-echo "- Auth Database: auth_db"
-echo "- Main Database: main_db"
+echo "Container Apps:"
+echo "- Frontend: https://${FRONTEND_URL}"
+echo "- Auth Service: (internal)"
+echo "- Main Service: (internal)"
+echo "- MongoDB: (internal)"
 echo ""
-echo "Web Applications:"
-echo "- Frontend: https://healthcure-frontend.azurewebsites.net"
-echo "- Auth Service: https://healthcure-auth.azurewebsites.net"
-echo "- Main Service: https://healthcure-main.azurewebsites.net"
+echo "Admin Credentials:"
+echo "Email: admin@healthcure.com"
+echo "Password: admin123"
 echo ""
-echo "Database Credentials:"
-echo "- Username: ${MYSQL_USER}"
-echo "- Password: ${MYSQL_PASS}"
-echo "- Host: ${MYSQL_SERVER}.mysql.database.azure.com"
-echo ""
-echo "Admin Credentials (Application):"
-echo "- Email: admin@healthcure.com"
-echo "- Password: admin123"
+echo "Important: Push Docker images to ACR first!"
+echo "cd ~/sistem-data-pasien && docker compose build"
+echo "docker tag sistem-data-pasien-frontend:latest ${ACR_SERVER}/healthcure-frontend:latest"
+echo "docker push ${ACR_SERVER}/healthcure-frontend:latest"
+echo "(Repeat for auth-service and main-service)"
 echo ""
