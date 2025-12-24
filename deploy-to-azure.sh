@@ -2,22 +2,23 @@
 
 # Configuration
 APP_NAME="app-pasien-$RANDOM"
-RG_NAME="rg-pasien-$RANDOM" # Unique RG name to avoid wait times
+RG_NAME="rg-pasien-$RANDOM"
 LOCATION="eastasia" 
 ACR_NAME="regpasien$RANDOM"
 PLAN_NAME="plan-pasien"
 
 # Colors
 GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${GREEN}Starting Deployment to Azure...${NC}"
+echo -e "${GREEN}Starting Hybrid Deployment to Azure...${NC}"
 echo "Resource Group: $RG_NAME"
-echo "App Name: $APP_NAME"
 echo "ACR Name: $ACR_NAME"
 echo "Location: $LOCATION"
 
-# 1. Create Resource Group (Always new, no waiting)
+# 1. Create Resource Group
 echo -e "${GREEN}Creating Resource Group...${NC}"
 az group create --name $RG_NAME --location $LOCATION
 
@@ -30,19 +31,30 @@ ACR_LOGIN_SERVER=$(az acr show --name $ACR_NAME --resource-group $RG_NAME --quer
 ACR_USERNAME=$(az acr credential show --name $ACR_NAME --resource-group $RG_NAME --query "username" --output tsv)
 ACR_PASSWORD=$(az acr credential show --name $ACR_NAME --resource-group $RG_NAME --query "passwords[0].value" --output tsv)
 
-echo "ACR Server: $ACR_LOGIN_SERVER"
+echo -e "\n${YELLOW}=======================================================${NC}"
+echo -e "${YELLOW}           PHASE 1 COMPLETE: INFRASTRUCTURE READY           ${NC}"
+echo -e "${YELLOW}=======================================================${NC}"
+echo -e "Karena akun student memblokir Cloud Build, Anda harus build & push dari laptop Anda."
+echo -e "Silakan buka TERMINAL DI LAPTOP ANDA (bukan Cloud Shell ini), dan jalankan command berikut satu per satu:\n"
 
-# 3. Build Images using ACR Build (Cloud Build)
-echo -e "${GREEN}Building Images in ACR...${NC}"
+echo -e "${CYAN}1. Login ke Docker Registry:${NC}"
+echo "docker login $ACR_LOGIN_SERVER -u $ACR_USERNAME -p $ACR_PASSWORD"
+echo ""
 
-echo "Building Auth Service..."
-az acr build --registry $ACR_NAME --image pasien-auth-service:latest ./auth-service
+echo -e "${CYAN}2. Build Images:${NC}"
+echo "docker build -t $ACR_LOGIN_SERVER/pasien-auth-service:latest ./auth-service"
+echo "docker build -t $ACR_LOGIN_SERVER/pasien-main-service:latest ./main-service"
+echo "docker build -t $ACR_LOGIN_SERVER/pasien-frontend:latest ./frontend"
+echo ""
 
-echo "Building Main Service..."
-az acr build --registry $ACR_NAME --image pasien-main-service:latest ./main-service
+echo -e "${CYAN}3. Push Images ke Azure:${NC}"
+echo "docker push $ACR_LOGIN_SERVER/pasien-auth-service:latest"
+echo "docker push $ACR_LOGIN_SERVER/pasien-main-service:latest"
+echo "docker push $ACR_LOGIN_SERVER/pasien-frontend:latest"
+echo ""
 
-echo "Building Frontend..."
-az acr build --registry $ACR_NAME --image pasien-frontend:latest ./frontend
+echo -e "${YELLOW}=======================================================${NC}"
+read -p "Jika SUDAH selesai menjalankan semua command di atas di laptop, tekan [ENTER] di sini untuk lanjut..."
 
 # 4. Create App Service Plan
 echo -e "${GREEN}Creating App Service Plan...${NC}"
