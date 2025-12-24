@@ -33,19 +33,69 @@ $plinkPath = & where.exe plink.exe 2>$null
 $pscpPath = & where.exe pscp.exe 2>$null
 
 if (-not $plinkPath -or -not $pscpPath) {
-    Write-Host "PuTTY tools not found in PATH" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "Please download and install PuTTY:" -ForegroundColor Cyan
-    Write-Host "  1. Download: https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html" -ForegroundColor Gray
-    Write-Host "  2. Install to: C:\Program Files\PuTTY" -ForegroundColor Gray
-    Write-Host "  3. Or add PuTTY folder to system PATH" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "Alternative: Use bash script with sshpass" -ForegroundColor Cyan
-    Write-Host "  cd deploy" -ForegroundColor Gray
-    Write-Host "  ./deploy-to-azure.sh" -ForegroundColor Gray
-    exit 1
+    Write-Host "PuTTY tools not found. Checking installation..." -ForegroundColor Yellow
+    
+    $puttyInstallPath = "C:\Program Files\PuTTY"
+    $plinkPath = "$puttyInstallPath\plink.exe"
+    $pscpPath = "$puttyInstallPath\pscp.exe"
+    
+    if (-not (Test-Path $plinkPath) -or -not (Test-Path $pscpPath)) {
+        Write-Host "Downloading and installing PuTTY..." -ForegroundColor Yellow
+        
+        try {
+            # Create temp directory
+            $tempDir = "$env:TEMP\putty-installer"
+            if (-not (Test-Path $tempDir)) {
+                New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+            }
+            
+            # Download PuTTY installer (portable version)
+            $puttyUrl = "https://the.earth.li/~sgtatham/putty/latest/w64/putty.exe"
+            $puttyPath = "$tempDir\putty.exe"
+            
+            Write-Host "Downloading PuTTY..." -ForegroundColor Gray
+            (New-Object System.Net.ServicePointManager).SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+            Invoke-WebRequest -Uri $puttyUrl -OutFile $puttyPath -ErrorAction Stop
+            
+            # Create PuTTY directory
+            if (-not (Test-Path $puttyInstallPath)) {
+                New-Item -ItemType Directory -Path $puttyInstallPath -Force | Out-Null
+            }
+            
+            # Extract PuTTY tools
+            Write-Host "Installing PuTTY tools..." -ForegroundColor Gray
+            Copy-Item $puttyPath -Destination "$puttyInstallPath\putty.exe" -Force
+            
+            # Download additional tools
+            $tools = @("plink.exe", "pscp.exe")
+            foreach ($tool in $tools) {
+                $toolUrl = "https://the.earth.li/~sgtatham/putty/latest/w64/$tool"
+                $toolPath = "$tempDir\$tool"
+                try {
+                    Invoke-WebRequest -Uri $toolUrl -OutFile $toolPath -ErrorAction Stop
+                    Copy-Item $toolPath -Destination "$puttyInstallPath\$tool" -Force
+                    Write-Host "Downloaded: $tool" -ForegroundColor Gray
+                } catch {
+                    Write-Host "Note: $tool may already be included" -ForegroundColor Gray
+                }
+            }
+            
+            # Add to PATH temporarily for this session
+            $env:Path = "$puttyInstallPath;$env:Path"
+            
+            Write-Host "PuTTY tools installed to: $puttyInstallPath" -ForegroundColor Green
+            
+            $plinkPath = $puttyInstallPath
+            $pscpPath = $puttyInstallPath
+        } catch {
+            Write-Host "Error: Could not download PuTTY automatically" -ForegroundColor Red
+            Write-Host "Please install PuTTY manually from: https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html" -ForegroundColor Yellow
+            exit 1
+        }
+    }
+} else {
+    Write-Host "PuTTY tools found" -ForegroundColor Green
 }
-Write-Host "PuTTY tools found" -ForegroundColor Green
 Write-Host ""
 
 # 1. Read configuration file
