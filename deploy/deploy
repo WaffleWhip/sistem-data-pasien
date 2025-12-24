@@ -1,0 +1,32 @@
+#!/bin/bash
+# HealthCure - Deployment Launcher (Netmiko)
+# Auto-installs dependencies and runs deployment
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+echo "=========================================="
+echo "HealthCure - Automated Deployment"
+echo "=========================================="
+echo ""
+
+# Install dependencies
+echo "[1/3] Checking dependencies..."
+if ! command -v python3 &> /dev/null; then
+    echo "Error: Python 3 not found"
+    exit 1
+fi
+
+# Install netmiko
+if ! python3 -c "import netmiko" 2>/dev/null; then
+    echo "  Installing netmiko..."
+    python3 -m pip install -q netmiko paramiko
+fi
+
+echo "  ✓ Dependencies ready"
+echo ""
+
+# Run deployment
+echo "[2/3] Starting deployment..."
+python3 "$SCRIPT_DIR/deploy.py"
