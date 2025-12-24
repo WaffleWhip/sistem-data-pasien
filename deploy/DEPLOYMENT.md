@@ -1,51 +1,54 @@
-# HealthCure - One-Click Deployment
+# HealthCure - Deployment Guide
 
-## Ultra Simple Setup
+## Quick Deploy (One Command)
 
-### Step 1: Edit Configuration
-```bash
-# Edit vm-config.env with your Azure VM details
-VM_USERNAME=your_username
-VM_PASSWORD=your_password
-VM_PUBLIC_IP=your_vm_ip
+### From Your Local Machine
+
+**Windows PowerShell:**
+```powershell
+ssh waf@40.81.25.253 'bash -s' < deploy\setup.sh
 ```
 
-### Step 2: Deploy (One Command)
+**Linux/Mac/WSL:**
 ```bash
-# From your local machine
-ssh waf@40.81.25.253 'bash -s' < setup.sh
+ssh waf@40.81.25.253 'bash -s' < deploy/setup.sh
 ```
 
 When prompted, enter your VM password - that's it!
 
-### What happens:
-1. ✅ Installs Docker
-2. ✅ Installs Docker Compose
-3. ✅ Clones application
-4. ✅ Starts all services
-5. ✅ Shows access info
+### What Happens:
+1. Script uploads to VM
+2. Automatically installs Docker
+3. Automatically installs Docker Compose
+4. Automatically clones application
+5. Automatically starts all services
+6. Shows access information
 
-### Access Application
-After deployment completes:
-- Open browser: `http://VM_PUBLIC_IP:3000`
-- Email: `admin@healthcure.com`
-- Password: `admin123`
+## Manual Steps (Alternative)
 
-## Manual Steps (if needed)
+If one-command doesn't work:
 
 ```bash
-# 1. SSH to VM
-ssh username@vm_ip
+# 1. From local machine - upload script
+scp deploy/setup.sh waf@40.81.25.253:~/
 
-# 2. Upload setup script
-# (from your local machine)
-scp setup.sh username@vm_ip:~/
+# 2. SSH to VM
+ssh waf@40.81.25.253
 
-# 3. Run setup
-bash ~/setup.sh
+# 3. Inside VM - run setup
+bash setup.sh
 
-# 4. Done! Application running
+# 4. Done!
 ```
+
+## Access Application
+
+After deployment completes:
+- **URL:** `http://VM_PUBLIC_IP:3000`
+- **Email:** `admin@healthcure.com`
+- **Password:** `admin123`
+
+Replace `VM_PUBLIC_IP` with your actual Azure VM public IP address (40.81.25.253 in this example).
 
 ---
 
