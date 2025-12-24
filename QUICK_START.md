@@ -12,7 +12,7 @@ cd sistem-data-pasien
 ## Step 2: Jalankan dengan Docker
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ## Step 3: Tunggu Services Siap
@@ -20,7 +20,7 @@ docker-compose up -d
 Tunggu ~30 detik hingga semua services healthy:
 
 ```bash
-docker-compose ps
+docker compose ps
 ```
 
 Pastikan status semua container adalah healthy atau Up
@@ -46,15 +46,15 @@ Password: admin123
 
 ```bash
 # Check all services running
-docker-compose ps
+docker compose ps
 
 # Check logs jika ada error
-docker-compose logs [service-name]
+docker compose logs [service-name]
 
 # Contoh:
-# docker-compose logs frontend
-# docker-compose logs auth-service
-# docker-compose logs main-service
+# docker compose logs frontend
+# docker compose logs auth-service
+# docker compose logs main-service
 ```
 
 ---
@@ -79,19 +79,19 @@ docker-compose logs [service-name]
 ## Stop Services
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ## Restart Services
 
 ```bash
-docker-compose restart
+docker compose restart
 ```
 
 ## Rebuild Images (setelah ada perubahan code)
 
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 ---
@@ -100,7 +100,7 @@ docker-compose up -d --build
 
 ### Services tidak berjalan
 ```bash
-docker-compose logs
+docker compose logs
 ```
 
 ### Port sudah digunakan
@@ -112,13 +112,13 @@ ports:
 
 ### Database connection error
 ```bash
-docker-compose restart mongodb-auth mongodb-main
+docker compose restart mongodb-auth mongodb-main
 ```
 
 ### Hapus semua dan restart bersih
 ```bash
-docker-compose down -v
-docker-compose up -d
+docker compose down -v
+docker compose up -d
 ```
 
 ---

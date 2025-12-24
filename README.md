@@ -11,7 +11,7 @@ Sistem manajemen data pasien berbasis web dengan arsitektur microservices. Memun
 ### Jalankan Aplikasi
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 Tunggu ~30 detik hingga semua services siap, lalu akses:
@@ -110,16 +110,16 @@ Akses Menu "Kunjungan Saya"
 
 ```bash
 # Start
-docker-compose up -d
+docker compose up -d
 
 # Stop
-docker-compose down
+docker compose down
 
 # Rebuild setelah ada perubahan
-docker-compose up -d --build
+docker compose up -d --build
 
 # Lihat logs
-docker-compose logs -f [service]
+docker compose logs -f [service]
 ```
 
 ### Deploy ke Azure Container Apps
@@ -171,8 +171,8 @@ MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/<database>
 
 | Problem | Solution |
 |---------|----------|
-| Services tidak jalan | docker-compose logs |
-| Database connection error | docker-compose restart mongodb-auth mongodb-main |
+| Services tidak jalan | docker compose logs |
+| Database connection error | docker compose restart mongodb-auth mongodb-main |
 | Port sudah dipakai | Ubah port di docker-compose.yml |
 | Admin belum ada | Sistem auto-create saat startup |
 
