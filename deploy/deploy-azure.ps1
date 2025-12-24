@@ -22,6 +22,53 @@ function Test-CommandExists {
     return $?
 }
 
+# Function to download file
+function Download-File {
+    param(
+        [string]$Url,
+        [string]$OutFile
+    )
+    
+    Write-Host "  Downloading $([System.IO.Path]::GetFileName($OutFile))..." -ForegroundColor Cyan
+    
+    try {
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing
+        Write-Host "  ✓ Downloaded to: $OutFile" -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Host "  ✗ Failed to download: $_" -ForegroundColor Red
+        return $false
+    }
+}
+
+# Function to get latest Docker Desktop URL
+function Get-LatestDockerUrl {
+    Write-Host "  Fetching latest Docker Desktop version..." -ForegroundColor Cyan
+    try {
+        # Get latest release info from Docker Hub
+        $Response = Invoke-WebRequest -Uri "https://docs.docker.com/desktop/release-notes/" -UseBasicParsing -ErrorAction SilentlyContinue
+        Write-Host "  ✓ Latest Docker: https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe" -ForegroundColor Green
+        return "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe"
+    } catch {
+        return "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe"
+    }
+}
+
+# Function to get latest Azure CLI URL
+function Get-LatestAzureCliUrl {
+    Write-Host "  Fetching latest Azure CLI version..." -ForegroundColor Cyan
+    try {
+        $Releases = Invoke-RestMethod -Uri "https://api.github.com/repos/Azure/azure-cli/releases/latest" -UseBasicParsing -ErrorAction SilentlyContinue
+        $LatestVersion = $Releases.tag_name
+        $DownloadUrl = "https://aka.ms/installazurecliwindows"
+        Write-Host "  ✓ Latest Azure CLI: $LatestVersion" -ForegroundColor Green
+        return $DownloadUrl
+    } catch {
+        return "https://aka.ms/installazurecliwindows"
+    }
+}
+
 # Function to check dependencies
 function Check-Dependencies {
     Write-Host "[0/8] Checking dependencies..." -ForegroundColor Yellow
@@ -54,27 +101,41 @@ function Check-Dependencies {
     if ($MissingTools.Count -gt 0) {
         Write-Host "Missing tools: $($MissingTools -join ', ')" -ForegroundColor Yellow
         Write-Host ""
-        Write-Host "Installation links:" -ForegroundColor Yellow
-        Write-Host "  • Docker Desktop: https://www.docker.com/products/docker-desktop" -ForegroundColor Cyan
-        Write-Host "  • Azure CLI:      https://aka.ms/installazurecliwindows" -ForegroundColor Cyan
-        Write-Host ""
         
-        $Install = Read-Host "Install missing tools now? (y/n)"
+        $Download = Read-Host "Download missing tools now? (y/n)"
         
-        if ($Install -eq 'y' -or $Install -eq 'Y') {
-            if ("Docker" -in $MissingTools) {
-                Write-Host "Opening Docker Desktop download page..." -ForegroundColor Yellow
-                Start-Process "https://www.docker.com/products/docker-desktop"
-            }
-            if ("Azure CLI" -in $MissingTools) {
-                Write-Host "Opening Azure CLI download page..." -ForegroundColor Yellow
-                Start-Process "https://aka.ms/installazurecliwindows"
-            }
+        if ($Download -eq 'y' -or $Download -eq 'Y') {
             Write-Host ""
-            Write-Host "Please install the tools and run this script again." -ForegroundColor Yellow
-            exit 1
+            Write-Host "Downloading tools to Downloads folder..." -ForegroundColor Yellow
+            Write-Host ""
+            
+            $DownloadPath = "$env:USERPROFILE\Downloads"
+            
+            if ("Docker" -in $MissingTools) {
+                $DockerUrl = Get-LatestDockerUrl
+                $DockerFile = "$DownloadPath\Docker-Desktop-Installer.exe"
+                if (Download-File -Url $DockerUrl -OutFile $DockerFile) {
+                    Write-Host "  👉 Double-click to install: $DockerFile" -ForegroundColor Cyan
+                }
+            }
+            
+            if ("Azure CLI" -in $MissingTools) {
+                $AzUrl = Get-LatestAzureCliUrl
+                $AzFile = "$DownloadPath\azure-cli-installer.msi"
+                if (Download-File -Url $AzUrl -OutFile $AzFile) {
+                    Write-Host "  👉 Double-click to install: $AzFile" -ForegroundColor Cyan
+                }
+            }
+            
+            Write-Host ""
+            Write-Host "After installation, restart PowerShell and run this script again." -ForegroundColor Yellow
+            exit 0
         } else {
             Write-Host "Cannot continue without required tools." -ForegroundColor Red
+            Write-Host ""
+            Write-Host "Download links:" -ForegroundColor Yellow
+            Write-Host "  • Docker Desktop: https://www.docker.com/products/docker-desktop" -ForegroundColor Cyan
+            Write-Host "  • Azure CLI:      https://aka.ms/installazurecliwindows" -ForegroundColor Cyan
             exit 1
         }
     }

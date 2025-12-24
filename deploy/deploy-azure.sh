@@ -2,7 +2,7 @@
 
 # HealthCure - Azure Container Apps Deployment (Bash/Linux/Mac/Cloud Shell)
 # Build lokal lalu push ke Azure Container Registry
-# With dependency checking and installation prompts
+# With dependency checking and auto-download functionality
 
 set -e
 
@@ -19,6 +19,54 @@ echo ""
 # Function to check if command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
+}
+
+# Function to download file
+download_file() {
+    local url=$1
+    local output=$2
+    local filename=$(basename "$output")
+    
+    echo "  Downloading $filename..."
+    
+    if command_exists curl; then
+        curl -L -o "$output" "$url" 2>/dev/null && echo "  ✓ Downloaded to: $output" && return 0
+    elif command_exists wget; then
+        wget -q -O "$output" "$url" && echo "  ✓ Downloaded to: $output" && return 0
+    else
+        echo "  ✗ curl or wget required for download"
+        return 1
+    fi
+}
+
+# Function to get latest Docker URL
+get_latest_docker_url() {
+    echo "  Fetching latest Docker version..."
+    
+    # Docker Desktop links
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        ARCH=$(uname -m)
+        if [[ "$ARCH" == "arm64" ]]; then
+            echo "https://desktop.docker.com/mac/main/arm64/Docker.dmg"
+        else
+            echo "https://desktop.docker.com/mac/main/amd64/Docker.dmg"
+        fi
+    else
+        # Linux - use Docker from repo
+        echo "docker"
+    fi
+}
+
+# Function to get latest Azure CLI URL
+get_latest_azure_cli_url() {
+    echo "  Fetching latest Azure CLI version..."
+    
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "https://aka.ms/installazureclimacos"
+    else
+        echo "azure-cli"
+    fi
 }
 
 # Function to check dependencies
@@ -51,20 +99,63 @@ check_dependencies() {
     if [ ${#MISSING[@]} -gt 0 ]; then
         echo "Missing tools: ${MISSING[*]}"
         echo ""
-        echo "Installation:"
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            echo "  Using Homebrew:"
-            echo "  brew install azure-cli docker"
-            echo ""
-            echo "  Or download from:"
-        fi
-        echo "  • Docker:    https://www.docker.com/products/docker-desktop"
-        echo "  • Azure CLI: https://learn.microsoft.com/cli/azure/install-azure-cli"
-        echo ""
-        read -p "Continue anyway? (y/n) " -n 1 -r
+        
+        read -p "Download missing tools now? (y/n) " -n 1 -r
         echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo "Exiting..."
+        
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo ""
+            echo "Downloading tools..."
+            echo ""
+            
+            DOWNLOAD_PATH="$HOME/Downloads"
+            mkdir -p "$DOWNLOAD_PATH"
+            
+            if [[ " ${MISSING[@]} " =~ " Docker " ]]; then
+                DOCKER_URL=$(get_latest_docker_url)
+                DOCKER_FILE="$DOWNLOAD_PATH/Docker-installer"
+                if [[ "$OSTYPE" == "darwin"* ]]; then
+                    DOCKER_FILE="$DOWNLOAD_PATH/Docker.dmg"
+                fi
+                if download_file "$DOCKER_URL" "$DOCKER_FILE"; then
+                    echo "  👉 Open to install: $DOCKER_FILE"
+                fi
+            fi
+            
+            if [[ " ${MISSING[@]} " =~ " Azure CLI " ]]; then
+                AZ_URL=$(get_latest_azure_cli_url)
+                AZ_FILE="$DOWNLOAD_PATH/azure-cli-installer"
+                if [[ "$OSTYPE" == "darwin"* ]]; then
+                    AZ_FILE="$DOWNLOAD_PATH/azure-cli.pkg"
+                fi
+                if download_file "$AZ_URL" "$AZ_FILE"; then
+                    echo "  👉 Open to install: $AZ_FILE"
+                fi
+            fi
+            
+            echo ""
+            echo "After installation, restart your terminal and run this script again."
+            exit 0
+        else
+            echo "Cannot continue without required tools."
+            echo ""
+            echo "Installation:"
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                echo "  Using Homebrew:"
+                echo "  brew install docker azure-cli"
+                echo ""
+                echo "  Or download from:"
+                echo "  • Docker:    https://www.docker.com/products/docker-desktop"
+                echo "  • Azure CLI: https://learn.microsoft.com/cli/azure/install-azure-cli-macos"
+            else
+                echo "  Using package manager:"
+                echo "  sudo apt install docker.io azure-cli  # Debian/Ubuntu"
+                echo "  sudo yum install docker azure-cli     # RHEL/CentOS"
+                echo ""
+                echo "  Or download from:"
+                echo "  • Docker:    https://www.docker.com/products/docker-desktop"
+                echo "  • Azure CLI: https://learn.microsoft.com/cli/azure/install-azure-cli-linux"
+            fi
             exit 1
         fi
     fi
