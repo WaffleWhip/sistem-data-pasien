@@ -2,17 +2,17 @@
 # HealthCure - Deploy to Azure VM (Bash)
 #
 # DESCRIPTION:
-#   Automated deployment script untuk deploy aplikasi HealthCure ke Azure VM
-#   dengan Docker Compose dari file konfigurasi vm-config.env
+#   Automated deployment script to deploy HealthCure application to Azure VM
+#   Installs Docker, Docker Compose, and starts all services
 #
 # USAGE:
 #   ./deploy-to-azure.sh
 #   ./deploy-to-azure.sh custom-config.env
 #
 # PREREQUISITES:
-#   1. OpenSSH client installed (Linux/Mac atau WSL di Windows)
-#   2. vm-config.env file sudah disiapkan dengan credentials yang benar
-#   3. Azure VM sudah running dan bisa diakses via SSH
+#   1. OpenSSH client installed (Linux/Mac or WSL on Windows)
+#   2. vm-config.env file configured with Azure VM credentials
+#   3. Azure VM running with SSH access enabled
 #
 # AUTHOR: HealthCure Dev Team
 
@@ -25,101 +25,98 @@ echo "HealthCure - Azure VM Deployment"
 echo "=========================================="
 echo ""
 
-# 1. Read config file
-echo "[1/5] Reading configuration..."
+# 1. Read configuration file
+echo "[1/6] Reading configuration..."
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "Error: vm-config.env not found at $CONFIG_FILE"
     exit 1
 fi
 
-# Source the config file (safely)
 set -a
 source "$CONFIG_FILE"
 set +a
 
-echo "✓ Config loaded"
-echo "  VM: $VM_PUBLIC_IP"
+echo "Configuration loaded"
+echo "  VM IP: $VM_PUBLIC_IP"
 echo "  User: $VM_USERNAME"
 echo ""
 
-# 2. Prepare deployment package
-echo "[2/5] Preparing deployment package..."
-PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-ZIP_FILE="$(dirname "$0")/healthcure-deploy.zip"
-
-rm -f "$ZIP_FILE"
-cd "$PROJECT_ROOT"
-
-zip -q -r "$ZIP_FILE" \
-    docker-compose.yml \
-    docker/ \
-    frontend/ \
-    main-service/ \
-    auth-service/
-
-echo "✓ Package created: $ZIP_FILE"
+# 2. Verify SSH connectivity
+echo "[2/6] Verifying SSH connectivity..."
+if ! ssh -o BatchMode=yes -o ConnectTimeout=5 "$VM_USERNAME@$VM_PUBLIC_IP" "echo OK" >/dev/null 2>&1; then
+    echo "Error: Cannot connect to VM via SSH"
+    echo "Please verify:"
+    echo "  1. Azure VM is running"
+    echo "  2. SSH port (22) is open in security group"
+    echo "  3. Credentials in vm-config.env are correct"
+    exit 1
+fi
+echo "SSH connection verified"
 echo ""
 
-# 3. Upload to Azure VM and extract
-echo "[3/5] Uploading to Azure VM..."
-echo "  Target: $VM_USERNAME@$VM_PUBLIC_IP"
-
-scp -o StrictHostKeyChecking=no \
-    -o UserKnownHostsFile=/dev/null \
-    -o ConnectTimeout=10 \
-    "$ZIP_FILE" "$VM_USERNAME@$VM_PUBLIC_IP:/tmp/healthcure-deploy.zip"
-
-echo "✓ Upload complete"
-echo ""
-
-# 4. Extract and start services
-echo "[4/5] Extracting files and starting services..."
-
-ssh -o StrictHostKeyChecking=no \
-    -o UserKnownHostsFile=/dev/null \
-    "$VM_USERNAME@$VM_PUBLIC_IP" << 'REMOTE_COMMANDS'
+# 3. Install Docker and dependencies
+echo "[3/6] Installing Docker and Docker Compose..."
+ssh "$VM_USERNAME@$VM_PUBLIC_IP" << 'DOCKER_SETUP'
 set -e
-echo "✓ Connected to VM"
+sudo apt-get update -y > /dev/null 2>&1
+sudo apt-get upgrade -y > /dev/null 2>&1
+sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release > /dev/null 2>&1
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg > /dev/null 2>&1
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null 2>&1
+sudo apt-get update -y > /dev/null 2>&1
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io > /dev/null 2>&1
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose > /dev/null 2>&1
+sudo chmod +x /usr/local/bin/docker-compose
+sudo usermod -aG docker $USER > /dev/null 2>&1
+echo "Docker and Docker Compose installed"
+DOCKER_SETUP
+echo "Installation complete"
+echo ""
 
-# Extract files
-mkdir -p ~/healthcure
-cd ~/healthcure
-unzip -q -o /tmp/healthcure-deploy.zip
-rm -f /tmp/healthcure-deploy.zip
+# 4. Upload project files
+echo "[4/6] Uploading project files to VM..."
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "✓ Files extracted"
+ssh "$VM_USERNAME@$VM_PUBLIC_IP" "mkdir -p ~/sistem-data-pasien" 2>/dev/null
+scp -r "$PROJECT_ROOT/docker-compose.yml" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
+scp -r "$PROJECT_ROOT/docker" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
+scp -r "$PROJECT_ROOT/frontend" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
+scp -r "$PROJECT_ROOT/main-service" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
+scp -r "$PROJECT_ROOT/auth-service" "$VM_USERNAME@$VM_PUBLIC_IP:~/sistem-data-pasien/" >/dev/null 2>&1
 
-# Start services
+echo "Project files uploaded"
+echo ""
+
+# 5. Start services via Docker Compose
+echo "[5/6] Starting services..."
+ssh "$VM_USERNAME@$VM_PUBLIC_IP" << 'DOCKER_RUN'
+cd ~/sistem-data-pasien
 docker compose up -d
 sleep 5
 docker compose ps
-
-echo "✓ Services started"
-REMOTE_COMMANDS
-
+DOCKER_RUN
 echo ""
 
+# 6. Display summary
+echo "[6/6] Deployment Summary"
+echo ""
 echo "=========================================="
-echo "✅ DEPLOYMENT COMPLETE!"
+echo "Deployment Complete"
 echo "=========================================="
 echo ""
 
-echo "Application Info:"
+echo "Application Information:"
 echo "  URL: http://$VM_PUBLIC_IP:$APP_PORT"
 echo "  Email: $ADMIN_EMAIL"
 echo "  Password: $ADMIN_PASSWORD"
 echo ""
 
-echo "Next steps:"
-echo "1. Wait 30-60 seconds for services to initialize"
-echo "2. Open browser: http://$VM_PUBLIC_IP:$APP_PORT"
-echo "3. Login with credentials above"
+echo "Next Steps:"
+echo "  1. Wait 30-60 seconds for services to initialize"
+echo "  2. Open browser: http://$VM_PUBLIC_IP:$APP_PORT"
+echo "  3. Login with provided credentials"
 echo ""
 
-echo "SSH to VM for debugging:"
+echo "Connect to VM:"
 echo "  ssh $VM_USERNAME@$VM_PUBLIC_IP"
 echo ""
-
-# Cleanup
-rm -f "$ZIP_FILE"
-echo "Cleanup: Temporary zip file removed"

@@ -2,7 +2,7 @@
 # 
 # DESCRIPTION:
 #   Automated deployment script to deploy HealthCure application to Azure VM
-#   using SSH and Docker Compose configured via vm-config.env
+#   Installs Docker, Docker Compose, and starts all services
 #
 # USAGE:
 #   .\deploy-to-azure.ps1
@@ -12,7 +12,6 @@
 #   1. SSH client installed (Windows 10+, Git Bash, or WSL)
 #   2. vm-config.env file configured with correct Azure VM credentials
 #   3. Azure VM running with SSH access enabled
-#   4. Docker and Docker Compose installed on Azure VM
 #
 # AUTHOR: HealthCure Dev Team
 
@@ -28,7 +27,7 @@ Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # 1. Read configuration file
-Write-Host "[1/5] Reading configuration..." -ForegroundColor Yellow
+Write-Host "[1/6] Reading configuration..." -ForegroundColor Yellow
 if (-not (Test-Path $ConfigFile)) {
     Write-Host "Error: vm-config.env not found at $ConfigFile" -ForegroundColor Red
     exit 1
@@ -50,7 +49,7 @@ Write-Host ""
 
 try {
     # 2. Verify SSH connectivity
-    Write-Host "[2/5] Verifying SSH connectivity..." -ForegroundColor Yellow
+    Write-Host "[2/6] Verifying SSH connectivity..." -ForegroundColor Yellow
     $sshTest = & ssh -o BatchMode=yes -o ConnectTimeout=5 "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP)" "echo OK" 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Error: Cannot connect to VM via SSH" -ForegroundColor Red
@@ -63,34 +62,52 @@ try {
     Write-Host "SSH connection verified" -ForegroundColor Green
     Write-Host ""
 
-    # 3. Upload project files
-    Write-Host "[3/5] Uploading project files to VM..." -ForegroundColor Yellow
+    # 3. Install Docker and dependencies
+    Write-Host "[3/6] Installing Docker and Docker Compose..." -ForegroundColor Yellow
+    & ssh "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP)" @"
+set -e
+sudo apt-get update -y > /dev/null 2>&1
+sudo apt-get upgrade -y > /dev/null 2>&1
+sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release > /dev/null 2>&1
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg > /dev/null 2>&1
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null 2>&1
+sudo apt-get update -y > /dev/null 2>&1
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io > /dev/null 2>&1
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-\$(uname -s)-\$(uname -m)" -o /usr/local/bin/docker-compose > /dev/null 2>&1
+sudo chmod +x /usr/local/bin/docker-compose
+sudo usermod -aG docker \$USER > /dev/null 2>&1
+echo "Docker and Docker Compose installed"
+"@
+    Write-Host "Installation complete" -ForegroundColor Green
+    Write-Host ""
+
+    # 4. Upload project files
+    Write-Host "[4/6] Uploading project files to VM..." -ForegroundColor Yellow
     $projectRoot = "$PSScriptRoot\.."
     
-    & scp -r "$projectRoot\docker-compose.yml" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/"
-    & scp -r "$projectRoot\docker" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/"
-    & scp -r "$projectRoot\frontend" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/"
-    & scp -r "$projectRoot\main-service" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/"
-    & scp -r "$projectRoot\auth-service" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/"
+    & ssh "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP)" "mkdir -p ~/sistem-data-pasien" 2>$null
+    & scp -r "$projectRoot\docker-compose.yml" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/" 2>$null
+    & scp -r "$projectRoot\docker" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/" 2>$null
+    & scp -r "$projectRoot\frontend" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/" 2>$null
+    & scp -r "$projectRoot\main-service" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/" 2>$null
+    & scp -r "$projectRoot\auth-service" "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP):~/sistem-data-pasien/" 2>$null
     
     Write-Host "Project files uploaded" -ForegroundColor Green
     Write-Host ""
 
-    # 4. Create required directories on VM
-    Write-Host "[4/5] Initializing VM environment..." -ForegroundColor Yellow
-    & ssh "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP)" "mkdir -p ~/sistem-data-pasien"
-    Write-Host "VM environment initialized" -ForegroundColor Green
-    Write-Host ""
-
     # 5. Start services via Docker Compose
-    Write-Host "[5/5] Starting services..." -ForegroundColor Yellow
+    Write-Host "[5/6] Starting services..." -ForegroundColor Yellow
+    & ssh "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP)" "newgrp docker" 2>$null
     & ssh "$($config.VM_USERNAME)@$($config.VM_PUBLIC_IP)" @"
 cd ~/sistem-data-pasien
 docker compose up -d
 sleep 5
 docker compose ps
 "@
+    Write-Host ""
 
+    # 6. Display summary
+    Write-Host "[6/6] Deployment Summary" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "==========================================" -ForegroundColor Cyan
     Write-Host "Deployment Complete" -ForegroundColor Green
