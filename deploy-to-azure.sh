@@ -3,7 +3,7 @@
 # Configuration
 APP_NAME="app-pasien-$RANDOM"
 RG_NAME="rg-pasien-project"
-LOCATION="eastus" 
+LOCATION="indonesiacentral" 
 ACR_NAME="regpasien$RANDOM"
 PLAN_NAME="plan-pasien"
 
