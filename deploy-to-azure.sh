@@ -3,7 +3,7 @@
 # Configuration
 APP_NAME="healthcure-app-$RANDOM"
 RG_NAME="healthcure-rg"
-LOCATION="indonesiacentral" # Indonesia Central region
+LOCATION="eastus" # Change this if needed (e.g., eastus, westeurope)
 ACR_NAME="healthcureacr$RANDOM"
 PLAN_NAME="healthcure-plan"
 
@@ -22,8 +22,7 @@ echo -e "${GREEN}Checking for existing Resource Group...${NC}"
 if az group exists --name $RG_NAME; then
     echo -e "${GREEN}Deleting existing Resource Group '$RG_NAME' to ensure clean deployment in $LOCATION...${NC}"
     az group delete --name $RG_NAME --yes --no-wait
-    echo -e "${GREEN}Deletion initiated. Waiting for 60 seconds to allow basic cleanup...${NC}"
-    sleep 60
+    echo -e "${GREEN}Deletion initiated. Proceeding immediately...${NC}"
 fi
 
 # 1. Create Resource Group
