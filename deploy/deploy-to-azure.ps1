@@ -1,5 +1,19 @@
 # HealthCure - Deploy to Azure VM (PowerShell)
-# Membaca config dari vm-config.env dan deploy ke Azure VM
+# 
+# DESCRIPTION:
+#   Automated deployment script untuk deploy aplikasi HealthCure ke Azure VM
+#   dengan Docker Compose dari file konfigurasi vm-config.env
+#
+# USAGE:
+#   .\deploy-to-azure.ps1
+#   .\deploy-to-azure.ps1 -ConfigFile "custom-config.env"
+#
+# PREREQUISITES:
+#   1. Docker Desktop installed pada host
+#   2. VM-config.env file sudah disiapkan dengan credentials yang benar
+#   3. Azure VM sudah running dan bisa diakses via SSH
+#
+# AUTHOR: HealthCure Dev Team
 
 param(
     [string]$ConfigFile = "$PSScriptRoot\vm-config.env"

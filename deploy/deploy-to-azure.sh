@@ -1,6 +1,20 @@
 #!/bin/bash
 # HealthCure - Deploy to Azure VM (Bash)
-# Membaca config dari vm-config.env dan deploy ke Azure VM
+#
+# DESCRIPTION:
+#   Automated deployment script untuk deploy aplikasi HealthCure ke Azure VM
+#   dengan Docker Compose dari file konfigurasi vm-config.env
+#
+# USAGE:
+#   ./deploy-to-azure.sh
+#   ./deploy-to-azure.sh custom-config.env
+#
+# PREREQUISITES:
+#   1. OpenSSH client installed (Linux/Mac atau WSL di Windows)
+#   2. vm-config.env file sudah disiapkan dengan credentials yang benar
+#   3. Azure VM sudah running dan bisa diakses via SSH
+#
+# AUTHOR: HealthCure Dev Team
 
 set -e
 
