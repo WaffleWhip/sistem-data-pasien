@@ -3,7 +3,7 @@
 # Configuration
 APP_NAME="healthcure-app-$RANDOM"
 RG_NAME="healthcure-rg"
-LOCATION="australiaeast" # Change this if needed (e.g., eastus, westeurope)
+LOCATION="indonesiacentral" # Indonesia Central region
 ACR_NAME="healthcureacr$RANDOM"
 PLAN_NAME="healthcure-plan"
 
