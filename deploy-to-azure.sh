@@ -17,6 +17,15 @@ echo "App Name: $APP_NAME"
 echo "ACR Name: $ACR_NAME"
 echo "Location: $LOCATION"
 
+# 0. Clean up existing Resource Group (if any) to avoid region conflicts
+echo -e "${GREEN}Checking for existing Resource Group...${NC}"
+if az group exists --name $RG_NAME; then
+    echo -e "${GREEN}Deleting existing Resource Group '$RG_NAME' to ensure clean deployment in $LOCATION...${NC}"
+    az group delete --name $RG_NAME --yes --no-wait
+    echo -e "${GREEN}Deletion initiated. Waiting for 60 seconds to allow basic cleanup...${NC}"
+    sleep 60
+fi
+
 # 1. Create Resource Group
 echo -e "${GREEN}Creating Resource Group...${NC}"
 az group create --name $RG_NAME --location $LOCATION
