@@ -246,66 +246,111 @@ az containerapp env create \
 ACR_USERNAME=$(az acr credential show --name $ACR_NAME --query username -o tsv)
 ACR_PASSWORD=$(az acr credential show --name $ACR_NAME --query 'passwords[0].value' -o tsv)
 
-# Step 8: Deploy Container Apps
-echo "[8/8] Deploying Container Apps..."
+# Step 8: Deploy Container Apps with proper dependency order
+echo "[8/8] Deploying Container Apps (with proper startup order)..."
+echo ""
 
-# Deploy MongoDB
-echo "Deploying MongoDB..."
-az containerapp create \
-    --name healthcure-mongodb \
-    --resource-group $RESOURCE_GROUP \
-    --environment healthcure-env \
-    --image mongo:4.4 \
-    --target-port 27017 \
-    --ingress internal \
-    --cpu 0.5 --memory 1.0Gi
+# Function to deploy container app with create or update
+deploy_container_app() {
+    local name=$1
+    local image=$2
+    local target_port=$3
+    local ingress=$4
+    local wait_seconds=$5
+    local -n env_vars=$6
+    
+    echo "Deploying $name..."
+    
+    # Try to update first
+    local env_args=""
+    for key in "${!env_vars[@]}"; do
+        env_args="$env_args \"${key}=${env_vars[$key]}\""
+    done
+    
+    if az containerapp show --name "$name" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+        # Update existing
+        if [ -n "$env_args" ]; then
+            eval "az containerapp update \
+                --name $name \
+                --resource-group $RESOURCE_GROUP \
+                --image $image \
+                --env-vars $env_args"
+        else
+            az containerapp update \
+                --name $name \
+                --resource-group $RESOURCE_GROUP \
+                --image $image
+        fi
+    else
+        # Create new
+        local create_cmd="az containerapp create \
+            --name $name \
+            --resource-group $RESOURCE_GROUP \
+            --environment healthcure-env \
+            --image $image \
+            --target-port $target_port \
+            --ingress $ingress \
+            --cpu 0.25 --memory 0.5Gi"
+        
+        if [[ "$name" == "healthcure-mongodb" ]]; then
+            create_cmd="${create_cmd/--cpu 0.25 --memory 0.5Gi/--cpu 0.5 --memory 1.0Gi}"
+        fi
+        
+        if [[ "$image" != "mongo:4.4" ]]; then
+            create_cmd="$create_cmd \
+                --registry-server $ACR_SERVER \
+                --registry-username $ACR_USERNAME \
+                --registry-password $ACR_PASSWORD"
+        fi
+        
+        if [ -n "$env_args" ]; then
+            create_cmd="$create_cmd --env-vars $env_args"
+        fi
+        
+        eval "$create_cmd"
+    fi
+    
+    if [ "$wait_seconds" -gt 0 ]; then
+        echo "  Waiting ${wait_seconds}s for $name to be ready..."
+        sleep "$wait_seconds"
+    fi
+}
 
-sleep 15
+# Phase 1: Deploy MongoDB (wait longest)
+echo ""
+echo "Phase 1: Deploy MongoDB (with init wait)..."
+declare -A mongodb_vars
+deploy_container_app "healthcure-mongodb" "mongo:4.4" "27017" "internal" "60" mongodb_vars
 
-# Deploy Auth Service
-echo "Deploying Auth Service..."
-az containerapp create \
-    --name healthcure-auth \
-    --resource-group $RESOURCE_GROUP \
-    --environment healthcure-env \
-    --image ${ACR_SERVER}/healthcure-auth-service:latest \
-    --target-port 3001 \
-    --ingress internal \
-    --registry-server $ACR_SERVER \
-    --registry-username $ACR_USERNAME \
-    --registry-password $ACR_PASSWORD \
-    --env-vars "MONGODB_URI=mongodb://healthcure-mongodb:27017/auth_db" "NODE_ENV=production" "JWT_SECRET=healthcure-jwt-secret-$RANDOM" \
-    --cpu 0.25 --memory 0.5Gi
+# Phase 2: Deploy Auth Service
+echo ""
+echo "Phase 2: Deploy Auth Service..."
+declare -A auth_vars=(
+    ["MONGODB_URI"]="mongodb://healthcure-mongodb:27017/auth_db"
+    ["NODE_ENV"]="production"
+    ["JWT_SECRET"]="healthcure-jwt-secret-$RANDOM"
+)
+deploy_container_app "healthcure-auth" "${ACR_SERVER}/healthcure-auth-service:latest" "3001" "internal" "20" auth_vars
 
-# Deploy Main Service
-echo "Deploying Main Service..."
-az containerapp create \
-    --name healthcure-main \
-    --resource-group $RESOURCE_GROUP \
-    --environment healthcure-env \
-    --image ${ACR_SERVER}/healthcure-main-service:latest \
-    --target-port 3002 \
-    --ingress internal \
-    --registry-server $ACR_SERVER \
-    --registry-username $ACR_USERNAME \
-    --registry-password $ACR_PASSWORD \
-    --env-vars "MONGODB_URI=mongodb://healthcure-mongodb:27017/main_db" "NODE_ENV=production" "JWT_SECRET=healthcure-jwt-secret-$RANDOM" \
-    --cpu 0.25 --memory 0.5Gi
+# Phase 3: Deploy Main Service
+echo ""
+echo "Phase 3: Deploy Main Service..."
+declare -A main_vars=(
+    ["MONGODB_URI"]="mongodb://healthcure-mongodb:27017/main_db"
+    ["NODE_ENV"]="production"
+    ["JWT_SECRET"]="healthcure-jwt-secret-$RANDOM"
+)
+deploy_container_app "healthcure-main" "${ACR_SERVER}/healthcure-main-service:latest" "3002" "internal" "20" main_vars
 
-# Deploy Frontend
-echo "Deploying Frontend..."
-az containerapp create \
-    --name healthcure-frontend \
-    --resource-group $RESOURCE_GROUP \
-    --environment healthcure-env \
-    --image ${ACR_SERVER}/healthcure-frontend:latest \
-    --target-port 3000 \
-    --ingress external \
-    --registry-server $ACR_SERVER \
-    --registry-username $ACR_USERNAME \
-    --registry-password $ACR_PASSWORD \
-    --env-vars "AUTH_SERVICE_URL=http://healthcure-auth:3001" "MAIN_SERVICE_URL=http://healthcure-main:3002" "NODE_ENV=production" \
-    --cpu 0.25 --memory 0.5Gi
+# Phase 4: Deploy Frontend
+echo ""
+echo "Phase 4: Deploy Frontend..."
+declare -A frontend_vars=(
+    ["AUTH_SERVICE_URL"]="http://healthcure-auth:3001"
+    ["MAIN_SERVICE_URL"]="http://healthcure-main:3002"
+    ["NODE_ENV"]="production"
+)
+deploy_container_app "healthcure-frontend" "${ACR_SERVER}/healthcure-frontend:latest" "3000" "external" "15" frontend_vars
 
 # Get Frontend URL
 sleep 10

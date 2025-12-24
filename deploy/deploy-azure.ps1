@@ -228,63 +228,137 @@ $AcrPassword = az acr credential show --name $AcrName --query 'passwords[0].valu
 # Step 8: Deploy Container Apps
 Write-Host "[8/8] Deploying Container Apps..." -ForegroundColor Yellow
 
-# Deploy MongoDB
-Write-Host "Deploying MongoDB..." -ForegroundColor Cyan
-az containerapp create `
-    --name healthcure-mongodb `
-    --resource-group $ResourceGroup `
-    --environment healthcure-env `
-    --image mongo:4.4 `
-    --target-port 27017 `
-    --ingress internal `
-    --cpu 0.5 --memory 1.0Gi
+# Helper function to create or update container app
+function Deploy-ContainerApp {
+    param(
+        [string]$Name,
+        [string]$Image,
+        [string]$TargetPort,
+        [string]$Ingress,
+        [hashtable]$EnvVars,
+        [int]$WaitSeconds = 0
+    )
+    
+    Write-Host "Deploying $Name..." -ForegroundColor Cyan
+    
+    # Build env-vars parameter
+    $EnvVarsArray = @()
+    foreach ($key in $EnvVars.Keys) {
+        $EnvVarsArray += "$key=$($EnvVars[$key])"
+    }
+    
+    # Try to update first, if not exists then create
+    $UpdateCmd = @(
+        "az", "containerapp", "update",
+        "--name", $Name,
+        "--resource-group", $ResourceGroup,
+        "--image", $Image
+    )
+    
+    if ($EnvVarsArray.Count -gt 0) {
+        $UpdateCmd += "--env-vars"
+        $UpdateCmd += $EnvVarsArray
+    }
+    
+    $UpdateResult = & $UpdateCmd 2>&1
+    
+    if ($LASTEXITCODE -ne 0) {
+        # Create new if update failed
+        $CreateCmd = @(
+            "az", "containerapp", "create",
+            "--name", $Name,
+            "--resource-group", $ResourceGroup,
+            "--environment", "healthcure-env",
+            "--image", $Image,
+            "--target-port", $TargetPort,
+            "--ingress", $Ingress,
+            "--cpu", "0.25",
+            "--memory", "0.5Gi"
+        )
+        
+        if ($Name -eq "healthcure-mongodb") {
+            $CreateCmd[-6] = "0.5"
+            $CreateCmd[-4] = "1.0Gi"
+        }
+        
+        if ($AcrServer -and $Image -notmatch "mongo") {
+            $CreateCmd += "--registry-server"
+            $CreateCmd += $AcrServer
+            $CreateCmd += "--registry-username"
+            $CreateCmd += $AcrUsername
+            $CreateCmd += "--registry-password"
+            $CreateCmd += $AcrPassword
+        }
+        
+        if ($EnvVarsArray.Count -gt 0) {
+            $CreateCmd += "--env-vars"
+            $CreateCmd += $EnvVarsArray
+        }
+        
+        & $CreateCmd | Out-Null
+    }
+    
+    if ($WaitSeconds -gt 0) {
+        Write-Host "  Waiting ${WaitSeconds}s for $Name to be ready..." -ForegroundColor Gray
+        Start-Sleep -Seconds $WaitSeconds
+    }
+}
 
-Start-Sleep -Seconds 15
+# Deploy MongoDB (wait longest - needs time to initialize)
+Write-Host ""
+Write-Host "Phase 1: Deploy MongoDB (with init wait)..." -ForegroundColor Magenta
+Deploy-ContainerApp `
+    -Name "healthcure-mongodb" `
+    -Image "mongo:4.4" `
+    -TargetPort "27017" `
+    -Ingress "internal" `
+    -EnvVars @{} `
+    -WaitSeconds 60
 
-# Deploy Auth Service
-Write-Host "Deploying Auth Service..." -ForegroundColor Cyan
-az containerapp create `
-    --name healthcure-auth `
-    --resource-group $ResourceGroup `
-    --environment healthcure-env `
-    --image "${AcrServer}/healthcure-auth-service:latest" `
-    --target-port 3001 `
-    --ingress internal `
-    --registry-server $AcrServer `
-    --registry-username $AcrUsername `
-    --registry-password $AcrPassword `
-    --env-vars "MONGODB_URI=mongodb://healthcure-mongodb:27017/auth_db" "NODE_ENV=production" "JWT_SECRET=healthcure-jwt-secret-$(Get-Random)" `
-    --cpu 0.25 --memory 0.5Gi
+# Deploy Auth Service (depends on MongoDB)
+Write-Host ""
+Write-Host "Phase 2: Deploy Auth Service..." -ForegroundColor Magenta
+Deploy-ContainerApp `
+    -Name "healthcure-auth" `
+    -Image "${AcrServer}/healthcure-auth-service:latest" `
+    -TargetPort "3001" `
+    -Ingress "internal" `
+    -EnvVars @{
+        "MONGODB_URI" = "mongodb://healthcure-mongodb:27017/auth_db"
+        "NODE_ENV" = "production"
+        "JWT_SECRET" = "healthcure-jwt-$(Get-Random -Minimum 10000 -Maximum 99999)"
+    } `
+    -WaitSeconds 20
 
-# Deploy Main Service
-Write-Host "Deploying Main Service..." -ForegroundColor Cyan
-az containerapp create `
-    --name healthcure-main `
-    --resource-group $ResourceGroup `
-    --environment healthcure-env `
-    --image "${AcrServer}/healthcure-main-service:latest" `
-    --target-port 3002 `
-    --ingress internal `
-    --registry-server $AcrServer `
-    --registry-username $AcrUsername `
-    --registry-password $AcrPassword `
-    --env-vars "MONGODB_URI=mongodb://healthcure-mongodb:27017/main_db" "NODE_ENV=production" "JWT_SECRET=healthcure-jwt-secret-$(Get-Random)" `
-    --cpu 0.25 --memory 0.5Gi
+# Deploy Main Service (depends on MongoDB)
+Write-Host ""
+Write-Host "Phase 3: Deploy Main Service..." -ForegroundColor Magenta
+Deploy-ContainerApp `
+    -Name "healthcure-main" `
+    -Image "${AcrServer}/healthcure-main-service:latest" `
+    -TargetPort "3002" `
+    -Ingress "internal" `
+    -EnvVars @{
+        "MONGODB_URI" = "mongodb://healthcure-mongodb:27017/main_db"
+        "NODE_ENV" = "production"
+        "JWT_SECRET" = "healthcure-jwt-$(Get-Random -Minimum 10000 -Maximum 99999)"
+    } `
+    -WaitSeconds 20
 
-# Deploy Frontend
-Write-Host "Deploying Frontend..." -ForegroundColor Cyan
-az containerapp create `
-    --name healthcure-frontend `
-    --resource-group $ResourceGroup `
-    --environment healthcure-env `
-    --image "${AcrServer}/healthcure-frontend:latest" `
-    --target-port 3000 `
-    --ingress external `
-    --registry-server $AcrServer `
-    --registry-username $AcrUsername `
-    --registry-password $AcrPassword `
-    --env-vars "AUTH_SERVICE_URL=http://healthcure-auth:3001" "MAIN_SERVICE_URL=http://healthcure-main:3002" "NODE_ENV=production" `
-    --cpu 0.25 --memory 0.5Gi
+# Deploy Frontend (depends on Auth & Main)
+Write-Host ""
+Write-Host "Phase 4: Deploy Frontend..." -ForegroundColor Magenta
+Deploy-ContainerApp `
+    -Name "healthcure-frontend" `
+    -Image "${AcrServer}/healthcure-frontend:latest" `
+    -TargetPort "3000" `
+    -Ingress "external" `
+    -EnvVars @{
+        "AUTH_SERVICE_URL" = "http://healthcure-auth:3001"
+        "MAIN_SERVICE_URL" = "http://healthcure-main:3002"
+        "NODE_ENV" = "production"
+    } `
+    -WaitSeconds 15
 
 # Get Frontend URL
 Start-Sleep -Seconds 10
