@@ -1,6 +1,6 @@
 # HealthCure - Sistem Data Pasien
 
-Sistem manajemen data pasien berbasis web dengan arsitektur microservices. Memungkinkan admin (petugas klinik) mengelola data pasien dan dokter, serta user (pasien) melihat dan memperbarui data pribadi mereka.
+Sistem manajemen data pasien berbasis web dengan arsitektur microservices.
 
 ## Quick Start
 
@@ -20,44 +20,15 @@ Tunggu ~30 detik, lalu akses: **http://localhost:3000**
 
 **Admin Login:** `admin@healthcure.com` / `admin123`
 
-### Deploy ke Azure VM (Recommended untuk Production)
+### Deploy ke Azure VM
 
-**1. Persiapan:**
-- Buat Azure VM (Standard B2ats v2) di region East Asia
-- Install Ubuntu Server 24.04 LTS
-- Buka SSH port (22)
+Lihat panduan lengkap di **[DEPLOYMENT.md](DEPLOYMENT.md)**
 
-**2. Setup:**
-```powershell
-# Edit file konfigurasi dengan credentials VM Anda
-# deploy/vm-config.env
-
-# Isi:
-VM_USERNAME=your_username
-VM_PASSWORD=your_password
-VM_PUBLIC_IP=your_vm_public_ip
-GITHUB_REPO=https://github.com/YOUR_USERNAME/sistem-data-pasien.git
+**Quick Deploy:**
+```bash
+# SSH ke VM dan jalankan:
+ssh azureuser@<VM_IP> 'bash -s' < deploy/setup.sh
 ```
-
-**3. Deploy:**
-```powershell
-# Windows PowerShell
-.\deploy\deploy-to-azure.ps1
-
-# Linux/Mac/WSL Bash
-./deploy/deploy-to-azure.sh
-```
-
-**4. Access:**
-```
-http://VM_PUBLIC_IP:3000
-```
-
----
-
-### Deploy ke Azure VM (Automated)
-
-> 📖 Panduan lengkap: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 
 ---
 
@@ -182,31 +153,15 @@ Jika login page terus loading/buffer, kemungkinan:
 
 **1. Auth Service tidak ready**
 ```bash
-# Check logs
 docker compose logs auth-service
-
-# Restart service
 docker compose restart auth-service
 ```
 
 **2. MongoDB belum connect**
 ```bash
-# Restart database
 docker compose restart mongodb-auth
-
-# Wait 10-15 detik sebelum login
+# Tunggu 10-15 detik sebelum login
 ```
-
-**3. Di Azure Container Apps**
-- Pastikan containers telah di-deploy dan running
-- Check health status: `az containerapp show --name healthcure-auth --resource-group healthcure-rg --query properties.provisioningState -o tsv`
-- View logs: `az containerapp logs show --name healthcure-auth --resource-group healthcure-rg --tail 50`
-- Tunggu 2-3 menit untuk services fully initialize
-
-**4. Network Timeout on Azure**
-- Frontend unable to access auth-service through internal DNS
-- Ensure correct container names are used in docker-compose.yml
-- Verify environment variables: `az containerapp show --name healthcure-frontend --resource-group healthcure-rg --query properties.template.containers[].env -o json`
 
 ---
 
@@ -214,18 +169,15 @@ docker compose restart mongodb-auth
 
 ```
 sistem-data-pasien/
-├── auth-service/              # JWT Authentication Service
-├── main-service/              # Patient and Doctor Management
-├── frontend/                  # Web Interface and API Gateway
-├── docker/                    # MongoDB Initialization Scripts
-├── deploy/                    # Azure Deployment Scripts
-│   ├── deploy-to-azure.ps1    # PowerShell Deployment Script
-│   ├── deploy-to-azure.sh     # Bash Deployment Script
-│   └── vm-config.env          # Configuration File (Local Only)
-├── docker-compose.yml         # Local Development Compose File
-├── README.md                  # Project Documentation
-├── DEPLOYMENT_GUIDE_VM.md     # Azure VM Deployment Guide
-└── REQUIREMENT_CHECKLIST.md   # Requirements Verification
+├── auth-service/          # JWT Authentication Service
+├── main-service/          # Patient & Doctor Management
+├── frontend/              # Web UI & API Gateway
+├── docker/                # MongoDB Init Scripts
+├── deploy/                # Deployment Scripts
+│   └── setup.sh           # VM Setup Script
+├── docker-compose.yml     # Container Orchestration
+├── DEPLOYMENT.md          # Azure VM Deployment Guide
+└── README.md              # Project Documentation
 ```
 
 ---
@@ -285,14 +237,7 @@ DELETE /api/visits/:id           - Delete (JWT, Admin)
 - Authentication: JWT
 - Frontend: EJS, CSS3, Vanilla JS
 - Container: Docker & Docker Compose
-- Deployment: Azure Container Apps
-
----
-
-## Complete Documentation
-
-- **[DEPLOYMENT_GUIDE_VM.md](DEPLOYMENT_GUIDE_VM.md)** - Azure VM Deployment Procedures
-- **[REQUIREMENT_CHECKLIST.md](REQUIREMENT_CHECKLIST.md)** - Requirement Verification Checklist
+- Deployment: Azure VM
 
 ---
 
