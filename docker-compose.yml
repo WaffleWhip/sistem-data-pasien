@@ -1,7 +1,7 @@
 services:
   # MongoDB - Single instance, 2 logical databases
   mongodb:
-    image: mongo:5.0-alpine
+    image: mongo:5.0
     container_name: healthcure-mongodb
     restart: always
     environment:
