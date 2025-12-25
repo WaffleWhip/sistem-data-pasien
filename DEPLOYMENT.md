@@ -53,43 +53,70 @@ Setelah VM dibuat, buka port untuk akses aplikasi:
 
 ## Step 3: Deploy Aplikasi
 
-### Option A: One-Command Deploy (Recommended)
+### SSH ke VM
+
+Dari komputer lokal, SSH ke VM:
 
 ```bash
-# Dari komputer lokal
-ssh azureuser@<VM_PUBLIC_IP> 'bash -s' < deploy/setup.sh
+ssh azureuser@<VM_PUBLIC_IP>
 ```
 
-Masukkan password saat diminta. Script akan otomatis:
-- Install Docker & Docker Compose
-- Clone repository
-- Start semua services
+Masukkan password saat diminta.
 
-### Option B: Manual Deploy
+---
+
+### Di Dalam VM - Setup & Deploy
+
+Setelah SSH masuk ke VM, jalankan commands berikut (di terminal VM):
+
+#### 1. Update System
 
 ```bash
-# 1. SSH ke VM
-ssh azureuser@<VM_PUBLIC_IP>
-
-# 2. Update system
 sudo apt update && sudo apt upgrade -y
+```
 
-# 3. Install Docker
+#### 2. Install Docker & Docker Compose
+
+```bash
+# Install Docker
 curl -fsSL https://get.docker.com | sudo sh
+
+# Add user ke docker group (agar tidak perlu sudo)
 sudo usermod -aG docker $USER
 
-# 4. Logout dan login ulang untuk apply docker group
+# Logout dan login ulang
 exit
 ssh azureuser@<VM_PUBLIC_IP>
+```
 
-# 5. Clone dan jalankan
+#### 3. Clone Repository
+
+```bash
 git clone https://github.com/WaffleWhip/sistem-data-pasien.git
 cd sistem-data-pasien
-docker compose up -d
+```
 
-# 6. Verifikasi
+#### 4. Run Setup Script
+
+```bash
+bash deploy/setup.sh
+```
+
+Script akan otomatis:
+- ✅ Install Docker & Docker Compose (jika belum)
+- ✅ Clone repository (jika belum)
+- ✅ Start semua services
+- ✅ Show access information
+
+#### 5. Verifikasi Services
+
+Tunggu ~30 detik, lalu check status:
+
+```bash
 docker compose ps
 ```
+
+Semua containers harus menunjukkan status `Up`.
 
 ---
 
