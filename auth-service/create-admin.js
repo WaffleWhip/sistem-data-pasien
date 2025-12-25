@@ -40,28 +40,30 @@ async function createAdmin() {
     const User = require('./src/models/User');
 
     // Check if admin exists
-    const adminExists = await User.findOne({ email: 'admin@healthcure.com' });
+    let admin = await User.findOne({ email: 'admin@healthcure.com' });
     
-    if (adminExists) {
-      console.log('⏭️  Admin user sudah ada, skip.');
-      await mongoose.disconnect();
-      return;
+    if (admin) {
+      // Update existing admin password
+      console.log('👤 Admin user sudah ada, updating password...');
+      admin.password = 'admin123';
+      await admin.save();
+      console.log('✅ Admin password berhasil di-update!');
+    } else {
+      // Create new admin user
+      admin = new User({
+        email: 'admin@healthcure.com',
+        phone: '081234567890',
+        password: 'admin123',
+        name: 'Administrator',
+        role: 'admin',
+        isVerified: true,
+        patientId: null
+      });
+
+      await admin.save();
+      console.log('✅ Admin user berhasil dibuat!');
     }
 
-    // Create admin user
-    const admin = new User({
-      email: 'admin@healthcure.com',
-      phone: '081234567890',
-      password: 'admin123',
-      name: 'Administrator',
-      role: 'admin',
-      isVerified: true,
-      patientId: null
-    });
-
-    await admin.save();
-
-    console.log('✅ Admin user berhasil dibuat!');
     console.log('📧 Email: admin@healthcure.com');
     console.log('🔐 Password: admin123');
     
