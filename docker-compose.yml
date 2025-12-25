@@ -1,32 +1,14 @@
 services:
-  # MongoDB for Auth Service (User Database)
-  mongodb-auth:
-    image: mongo:5.0
-    container_name: healthcure-mongodb-auth
+  # MongoDB - Single instance, 2 logical databases
+  mongodb:
+    image: mongo:5.0-alpine
+    container_name: healthcure-mongodb
     restart: always
     environment:
       MONGO_INITDB_DATABASE: auth_db
     volumes:
-      - mongodb_auth_data:/data/db
+      - mongodb_data:/data/db
       - ./docker/mongo-init/init-auth.js:/docker-entrypoint-initdb.d/init-auth.js:ro
-    networks:
-      - healthcure-network
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-
-  # MongoDB for Main Service (Project Database)
-  mongodb-main:
-    image: mongo:5.0
-    container_name: healthcure-mongodb-main
-    restart: always
-    environment:
-      MONGO_INITDB_DATABASE: main_db
-    volumes:
-      - mongodb_main_data:/data/db
     networks:
       - healthcure-network
     healthcheck:
@@ -45,12 +27,12 @@ services:
     restart: always
     environment:
       PORT: 3001
-      MONGODB_URI: mongodb://mongodb-auth:27017/auth_db
+      MONGODB_URI: mongodb://mongodb:27017/auth_db
       JWT_SECRET: ${JWT_SECRET:-healthcure-super-secret-jwt-key-2024}
       JWT_EXPIRES_IN: 24h
       NODE_ENV: production
     depends_on:
-      mongodb-auth:
+      mongodb:
         condition: service_healthy
     networks:
       - healthcure-network
@@ -71,11 +53,11 @@ services:
     restart: always
     environment:
       PORT: 3002
-      MONGODB_URI: mongodb://mongodb-main:27017/main_db
+      MONGODB_URI: mongodb://mongodb:27017/main_db
       JWT_SECRET: ${JWT_SECRET:-healthcure-super-secret-jwt-key-2024}
       NODE_ENV: production
     depends_on:
-      mongodb-main:
+      mongodb:
         condition: service_healthy
     networks:
       - healthcure-network
@@ -118,7 +100,5 @@ networks:
     name: healthcure-network
 
 volumes:
-  mongodb_auth_data:
-    name: healthcure-mongodb-auth-data
-  mongodb_main_data:
-    name: healthcure-mongodb-main-data
+  mongodb_data:
+    name: healthcure-mongodb-data

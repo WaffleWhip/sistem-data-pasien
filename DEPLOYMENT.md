@@ -189,6 +189,15 @@ rm -rf ~/sistem-data-pasien
 
 ---
 
+## Resource Optimization
+
+Aplikasi sudah dioptimasi untuk 1GB RAM:
+- **Alpine Node.js**: Mengurangi image size ~60%
+- **Single MongoDB**: 2 database logis dalam 1 container
+- **Total RAM Usage**: ~600MB (fit dalam 1GB dengan margin)
+
+---
+
 ## Quick Reference
 
 | Item | Value |
