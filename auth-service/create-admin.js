@@ -46,6 +46,8 @@ async function createAdmin() {
       // Update existing admin password
       console.log('👤 Admin user sudah ada, updating password...');
       admin.password = 'admin123';
+      admin.phone = admin.phone || '081234567890';
+      admin.isVerified = true;
       await admin.save();
       console.log('✅ Admin password berhasil di-update!');
     } else {
