@@ -37,16 +37,16 @@ Panduan deployment aplikasi HealthCure ke Azure Virtual Machine (Linux).
 
 ---
 
-## Step 2: Buka Port 3000
+## Step 2: Buka Port 80
 
 Setelah VM dibuat, buka port untuk akses aplikasi:
 
 1. Di Azure Portal, buka VM → **Networking**
 2. Klik **Add inbound port rule**
 3. Konfigurasi:
-   - **Destination port ranges**: `3000`
+   - **Destination port ranges**: `80`
    - **Protocol**: TCP
-   - **Name**: `Allow-HTTP-3000`
+   - **Name**: `Allow-HTTP-80`
 4. Klik **Add**
 
 ---
@@ -86,8 +86,10 @@ Tunggu ~5 menit hingga selesai.
 
 Buka browser:
 ```
-http://<VM_PUBLIC_IP>:3000
+http://<VM_PUBLIC_IP>
 ```
+
+Tidak perlu `:80` karena itu default port untuk HTTP.
 
 ### Default Login Admin
 | | |
@@ -191,13 +193,13 @@ rm -rf ~/sistem-data-pasien
 
 | Item | Value |
 |------|-------|
-| **App URL** | `http://<VM_IP>:3000` |
+| **App URL** | `http://<VM_IP>` (port 80 default) |
 | **SSH** | `ssh azureuser@<VM_IP>` |
 | **Admin Email** | admin@healthcure.com |
 | **Admin Password** | admin123 |
-| **Frontend Port** | 3000 |
-| **Auth Service** | 3001 (internal) |
-| **Main Service** | 3002 (internal) |
+| **Frontend Port** | 80 (external) → 3000 (internal) |
+| **Auth Service** | 3001 (internal only) |
+| **Main Service** | 3002 (internal only) |
 
 ---
 
