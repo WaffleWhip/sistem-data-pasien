@@ -46,15 +46,14 @@ async function createAdmin() {
       // Update existing admin password
       console.log('👤 Admin user sudah ada, updating password...');
       admin.password = 'admin123';
-      admin.phone = admin.phone || '081234567890';
+      admin.phone = null;  // Admin tidak perlu phone
       admin.isVerified = true;
       await admin.save();
       console.log('✅ Admin password berhasil di-update!');
     } else {
-      // Create new admin user
+      // Create new admin user (phone not needed for admin)
       admin = new User({
         email: 'admin@healthcure.com',
-        phone: '081234567890',
         password: 'admin123',
         name: 'Administrator',
         role: 'admin',

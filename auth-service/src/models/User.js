@@ -11,8 +11,16 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: [true, 'Nomor telepon wajib diisi'],
-    trim: true
+    default: null,
+    trim: true,
+    validate: {
+      validator: function() {
+        // Phone wajib untuk user, optional untuk admin
+        if (this.role === 'admin') return true;
+        return !!this.phone;
+      },
+      message: 'Nomor telepon wajib diisi untuk user'
+    }
   },
   password: {
     type: String,
