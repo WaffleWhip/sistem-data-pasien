@@ -53,9 +53,9 @@ Setelah VM dibuat, buka port untuk akses aplikasi:
 
 ## Step 3: Deploy Aplikasi
 
-### SSH ke VM
+Hanya 2 command saja dari komputer lokal:
 
-Dari komputer lokal, SSH ke VM:
+### Command 1: SSH ke VM
 
 ```bash
 ssh azureuser@<VM_PUBLIC_IP>
@@ -63,60 +63,22 @@ ssh azureuser@<VM_PUBLIC_IP>
 
 Masukkan password saat diminta.
 
----
+### Command 2: Di Dalam VM - Clone & Run Setup
 
-### Di Dalam VM - Setup & Deploy
-
-Setelah SSH masuk ke VM, jalankan commands berikut (di terminal VM):
-
-#### 1. Update System
+Setelah SSH masuk, copy-paste command ini:
 
 ```bash
-sudo apt update && sudo apt upgrade -y
-```
-
-#### 2. Install Docker & Docker Compose
-
-```bash
-# Install Docker
-curl -fsSL https://get.docker.com | sudo sh
-
-# Add user ke docker group (agar tidak perlu sudo)
-sudo usermod -aG docker $USER
-
-# Logout dan login ulang
-exit
-ssh azureuser@<VM_PUBLIC_IP>
-```
-
-#### 3. Clone Repository
-
-```bash
-git clone https://github.com/WaffleWhip/sistem-data-pasien.git
-cd sistem-data-pasien
-```
-
-#### 4. Run Setup Script
-
-```bash
-bash deploy/setup.sh
+git clone https://github.com/WaffleWhip/sistem-data-pasien.git && cd sistem-data-pasien && bash deploy/setup.sh
 ```
 
 Script akan otomatis:
-- ✅ Install Docker & Docker Compose (jika belum)
+- ✅ Update system packages
+- ✅ Install Docker & Docker Compose
 - ✅ Clone repository (jika belum)
 - ✅ Start semua services
 - ✅ Show access information
 
-#### 5. Verifikasi Services
-
-Tunggu ~30 detik, lalu check status:
-
-```bash
-docker compose ps
-```
-
-Semua containers harus menunjukkan status `Up`.
+Tunggu ~5 menit hingga selesai.
 
 ---
 
@@ -139,6 +101,8 @@ http://<VM_PUBLIC_IP>:3000
 
 ## Maintenance Commands
 
+Setelah deployment, gunakan commands ini untuk maintenance:
+
 ```bash
 # SSH ke VM
 ssh azureuser@<VM_PUBLIC_IP>
@@ -147,16 +111,19 @@ cd sistem-data-pasien
 # Cek status services
 docker compose ps
 
-# Lihat logs
+# Lihat logs real-time
 docker compose logs -f
 
-# Restart services
+# Lihat logs specific service
+docker compose logs -f auth-service
+
+# Restart semua services
 docker compose restart
 
-# Stop services
+# Stop semua services
 docker compose down
 
-# Update aplikasi
+# Update aplikasi ke version terbaru
 git pull
 docker compose down
 docker compose up -d --build
