@@ -37,7 +37,7 @@ echo "[5/6] Starting services..."
 newgrp docker << 'ENDGROUP'
 cd ~/sistem-data-pasien
 docker compose up -d
-sleep 5
+sleep 10
 ENDGROUP
 echo "OK"
 
@@ -50,9 +50,14 @@ echo "=========================================="
 echo "Deployment Complete!"
 echo "=========================================="
 echo ""
+newgrp docker << 'ENDGROUP'
+cd ~/sistem-data-pasien
 docker compose ps
+ENDGROUP
 echo ""
-echo "Access: http://${IP}"
-echo "Email: admin@healthcure.com"
-echo "Password: admin123"
+echo "🌐 Application URL: http://${IP}"
+echo "📧 Admin Email: admin@healthcure.com"
+echo "🔐 Password: admin123"
+echo ""
+echo "⏱️  Services initializing... wait ~30 seconds before first login"
 echo ""
